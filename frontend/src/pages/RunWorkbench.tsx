@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import AgentGraph from '../components/AgentGraph'
 import { getTask, getEvents, getReport, getReview, getEvidence } from '../api/client'
 
 interface LogEvent {
@@ -106,7 +107,6 @@ export default function RunWorkbench() {
     ['NODE_STARTED', 'NODE_SUCCEEDED', 'NODE_FAILED'].includes(e.event_type)
   )
 
-  const dagNodes = ['researcher', 'analyst', 'writer', 'reviewer']
   const nodeStatus: Record<string, string> = {}
   nodeEvents.forEach(e => {
     if (e.event_type === 'NODE_STARTED') nodeStatus[e.node_name || ''] = 'running'
@@ -154,41 +154,14 @@ export default function RunWorkbench() {
       {activeTab === 'dag' && (
         <div>
           <h3>Agent 执行流程</h3>
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 16 }}>
-            {dagNodes.map((node, i) => {
-              const status = nodeStatus[node]
-              const colors: Record<string, string> = {
-                running: '#f59e0b',
-                success: '#22c55e',
-                failed: '#ef4444',
-                pending: '#e5e7eb',
-              }
-              const bg = colors[status || 'pending']
-              const textColor = status ? '#fff' : '#374151'
-              return (
-                <div key={node} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <div
-                    style={{
-                      padding: '16px 24px',
-                      background: bg,
-                      color: textColor,
-                      borderRadius: 8,
-                      fontWeight: 600,
-                      minWidth: 100,
-                      textAlign: 'center',
-                    }}
-                  >
-                    {node}
-                  </div>
-                  {i < dagNodes.length - 1 && (
-                    <span style={{ fontSize: 20, color: '#9ca3af' }}>→</span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-          {!reviewPassed && reviewIssues.length > 0 && (
-            <div style={{ marginTop: 24, padding: 16, background: '#fef3c7', borderRadius: 8 }}>
+          <AgentGraph
+            nodeStatus={nodeStatus}
+            reviewPassed={reviewPassed}
+            hasOpenIssues={reviewIssues.some(i => i.status === 'open')}
+            retryTarget={review?.retry_target as string | null | undefined}
+          />
+          {!reviewPassed && reviewIssues.filter(i => i.status === 'open').length > 0 && (
+            <div style={{ marginTop: 16, padding: 16, background: '#fef3c7', borderRadius: 8 }}>
               <strong>Reviewer 打回路径</strong>
               <div style={{ marginTop: 8 }}>
                 {reviewIssues.filter(i => i.status === 'open').map((issue, idx) => (
@@ -214,7 +187,7 @@ export default function RunWorkbench() {
             </div>
           )}
           {reviewPassed && (
-            <div style={{ marginTop: 24, padding: 16, background: '#dcfce7', borderRadius: 8, color: '#166534' }}>
+            <div style={{ marginTop: 16, padding: 16, background: '#dcfce7', borderRadius: 8, color: '#166534' }}>
               Reviewer 已通过，报告已生成
             </div>
           )}

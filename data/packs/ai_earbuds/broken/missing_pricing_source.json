@@ -81,15 +81,6 @@
     "public_or_authorized": true
   },
   {
-    "source_id": "src_galaxybuds_002",
-    "title": "Galaxy Buds 3 Pro 深度评测",
-    "source_type": "review",
-    "url": "https://example.com/galaxy-buds-review",
-    "product": "Galaxy Buds 3 Pro",
-    "raw_excerpt": "Galaxy AI 翻译功能实用，音质在 Android 阵营表现优秀。短板是 iOS 兼容性差，Galaxy AI 功能在非三星设备上受限。目标用户：三星生态用户。",
-    "public_or_authorized": true
-  },
-  {
     "source_id": "src_market_001",
     "title": "2025 AI 耳机市场报告",
     "source_type": "survey",
