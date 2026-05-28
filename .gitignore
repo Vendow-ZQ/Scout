@@ -1,0 +1,17 @@
+.env
+.env.local
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+*.log
+runtime/logs/*.jsonl
+runtime/artifacts/*/
+runtime/runs/*/
+*.db
+*.sqlite
+*.sqlite3
+dist/
+build/

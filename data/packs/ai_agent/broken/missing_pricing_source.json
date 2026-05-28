@@ -1,0 +1,101 @@
+[
+  {
+    "source_id": "src_chatgpt_001",
+    "title": "ChatGPT 官方功能介绍",
+    "source_type": "official",
+    "url": "https://openai.com/chatgpt",
+    "product": "ChatGPT",
+    "raw_excerpt": "ChatGPT 支持多模态对话、代码生成、文件分析、DALL-E 图像生成、自定义 GPTs 和 GPT Store。支持联网搜索（SearchGPT）。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_chatgpt_002",
+    "title": "ChatGPT 评测：2025年最强AI助手",
+    "source_type": "review",
+    "url": "https://example.com/chatgpt-review",
+    "product": "ChatGPT",
+    "raw_excerpt": "ChatGPT Plus 定价 $20/月，Team 版 $25/人/月。优势在于生态完整、插件丰富；短板是推理能力略逊于 Claude，中文支持一般。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_claude_001",
+    "title": "Claude 官方能力文档",
+    "source_type": "official",
+    "url": "https://www.anthropic.com/claude",
+    "product": "Claude",
+    "raw_excerpt": "Claude 以长上下文（200K tokens）、安全对齐和复杂推理著称。支持Artifacts实时预览、Projects项目管理、Computer Use 计算机控制。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_claude_002",
+    "title": "Claude vs ChatGPT 深度对比",
+    "source_type": "review",
+    "url": "https://example.com/claude-comparison",
+    "product": "Claude",
+    "raw_excerpt": "Claude Pro $20/月。优势是推理深度、写作质量、安全性；短板是代码执行环境弱于 GPT，联网搜索能力有限，国内访问困难。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_gemini_001",
+    "title": "Google Gemini 官方介绍",
+    "source_type": "official",
+    "url": "https://gemini.google.com",
+    "product": "Gemini",
+    "raw_excerpt": "Gemini 1.5 Pro 支持 100万 token 上下文，多模态原生架构，深度集成 Google 搜索、Gmail、Docs。Gemini Advanced $19.99/月。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_gemini_002",
+    "title": "Gemini 2025年评测报告",
+    "source_type": "review",
+    "url": "https://example.com/gemini-review",
+    "product": "Gemini",
+    "raw_excerpt": "Gemini 优势在于长上下文和 Google 生态集成；短板是创意写作较弱，部分地区功能受限。目标用户：Google 生态重度用户。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_genspark_001",
+    "title": "Genspark 官方产品页",
+    "source_type": "official",
+    "url": "https://www.genspark.ai",
+    "product": "Genspark",
+    "raw_excerpt": "Genspark 由前百度高管创立，主打 AI Agent 超级入口。支持多 Agent 协作、自动调研、报告生成、代码开发。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_genspark_002",
+    "title": "Genspark：中国 AI Agent 新秀",
+    "source_type": "news",
+    "url": "https://example.com/genspark-news",
+    "product": "Genspark",
+    "raw_excerpt": "Genspark 定位为'通用 AI Agent 平台'，集成了搜索、代码、写作、数据分析等多种 Agent。目前处于免费公测阶段。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_manus_001",
+    "title": "Manus AI 官方介绍",
+    "source_type": "official",
+    "url": "https://manus.im",
+    "product": "Manus",
+    "raw_excerpt": "Manus 定位为'全球首款通用 AI Agent'，能够自主完成复杂任务，包括数据分析、内容创作、代码开发、旅行规划等。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_market_001",
+    "title": "2025 AI Agent 市场趋势报告",
+    "source_type": "survey",
+    "url": "https://example.com/ai-agent-market",
+    "product": null,
+    "raw_excerpt": "AI Agent 市场预计2025年达100亿美元。关键趋势：从聊天工具向任务执行演进，多 Agent 协作成为核心竞争力。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_market_002",
+    "title": "AI Agent 用户需求调研",
+    "source_type": "survey",
+    "url": "https://example.com/ai-agent-user-survey",
+    "product": null,
+    "raw_excerpt": "用户最期待 AI Agent 能力：自动完成复杂任务（78%）、多步骤规划（65%）、工具调用（58%）、结果可验证（52%）。",
+    "public_or_authorized": true
+  }
+]
