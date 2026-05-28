@@ -167,11 +167,42 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
         if not products:
             products = ["ChatGPT", "Claude", "Gemini", "Genspark", "Manus"]
 
+        # Load previous issues if any
+        previous_issues: list[dict[str, Any]] = []
+        artifact_dir = Path(settings.artifact_dir) / task_id
+        review_path = artifact_dir / "review.json"
+        if review_path.exists():
+            try:
+                with open(review_path, "r", encoding="utf-8") as f:
+                    prev = json.load(f)
+                    previous_issues = prev.get("issues", [])
+            except Exception:
+                pass
+
+        new_issues: list[ReviewIssue] = []
+        new_issues.extend(_check_source_coverage(evidence, products))
+        new_issues.extend(_check_claim_evidence(claims))
+        new_issues.extend(_check_confidence(claims))
+        new_issues.extend(_check_report_completeness(report))
+
+        # Merge with previous issues
         all_issues: list[ReviewIssue] = []
-        all_issues.extend(_check_source_coverage(evidence, products))
-        all_issues.extend(_check_claim_evidence(claims))
-        all_issues.extend(_check_confidence(claims))
-        all_issues.extend(_check_report_completeness(report))
+        seen_keys: set[str] = set()
+
+        # Add new issues first
+        for issue in new_issues:
+            key = f"{issue.issue_type}:{issue.target_object_id}"
+            seen_keys.add(key)
+            all_issues.append(issue)
+
+        # Add previous issues that are not in new issues (mark as fixed if they were open)
+        for prev in previous_issues:
+            key = f"{prev.get('issue_type')}:{prev.get('target_object_id')}"
+            if key not in seen_keys:
+                if prev.get("status") == "open":
+                    prev["status"] = "fixed"
+                    log_review_fixed(task_id, run_id, prev.get("issue_id", ""))
+                all_issues.append(ReviewIssue.model_validate(prev))
 
         # Determine retry target from highest severity issue
         retry_target = None
@@ -211,18 +242,23 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
                         },
                     )
 
-        # Save review artifact
-        artifact_dir = Path(settings.artifact_dir) / task_id
+        # Save review artifact with history
         artifact_dir.mkdir(parents=True, exist_ok=True)
-
         review_ref = f"runtime/artifacts/{task_id}/review.json"
-        with open(artifact_dir / "review.json", "w", encoding="utf-8") as f:
+        with open(review_path, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "review_passed": review_passed,
                     "retry_target": retry_target,
                     "retry_count": retry_count,
                     "issues": [i.model_dump(mode="json") for i in all_issues],
+                    "issue_history": [
+                        {
+                            "run_id": run_id,
+                            "open_count": len([i for i in all_issues if i.status == "open"]),
+                            "fixed_count": len([i for i in all_issues if i.status == "fixed"]),
+                        }
+                    ],
                 },
                 f,
                 ensure_ascii=False,
@@ -238,16 +274,10 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
                 "review_passed": review_passed,
                 "issue_count": len(all_issues),
                 "open_issues": len([i for i in all_issues if i.status == "open"]),
+                "fixed_issues": len([i for i in all_issues if i.status == "fixed"]),
                 "retry_target": retry_target,
             },
         )
-
-        # If on retry and issues are fixed, mark them as fixed
-        if retry_count > 0 and not has_blocker:
-            for issue in all_issues:
-                if issue.status == "open" and issue.severity != "blocker":
-                    issue.status = "fixed"
-                    log_review_fixed(task_id, run_id, issue.issue_id)
 
         return {
             "review_issues": [i.model_dump(mode="json") for i in all_issues],

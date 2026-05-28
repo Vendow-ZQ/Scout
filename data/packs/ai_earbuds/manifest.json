@@ -1,0 +1,12 @@
+{
+  "pack_id": "ai_earbuds",
+  "name": "AI 耳机 / ola friend 竞品分析",
+  "description": "AI 耳机产品竞品分析数据包，包含 ola friend、Nothing Ear、Pixel Buds、AirPods Pro、Samsung Galaxy Buds 等产品",
+  "version": "1.0.0",
+  "products": ["ola friend", "Nothing Ear (a)", "Pixel Buds Pro", "AirPods Pro 2", "Galaxy Buds 3 Pro"],
+  "main_product": "ola friend",
+  "industry": "AI 耳机",
+  "region": "全球 + 中国",
+  "source_count": 10,
+  "schema_pack": "ai_earbuds"
+}

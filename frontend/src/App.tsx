@@ -1,6 +1,8 @@
 import { Routes, Route, Link } from 'react-router-dom'
 import TaskCreate from './pages/TaskCreate'
+import TaskList from './pages/TaskList'
 import RunWorkbench from './pages/RunWorkbench'
+import SourcesPage from './pages/SourcesPage'
 
 function App() {
   return (
@@ -10,12 +12,14 @@ function App() {
         <p style={{ margin: '4px 0 0', color: '#666' }}>AI 驱动的竞品分析 Agent 协作系统</p>
         <nav style={{ marginTop: 12 }}>
           <Link to="/" style={{ marginRight: 16 }}>新建任务</Link>
-          <Link to="/tasks">任务列表</Link>
+          <Link to="/tasks" style={{ marginRight: 16 }}>任务列表</Link>
         </nav>
       </header>
       <Routes>
         <Route path="/" element={<TaskCreate />} />
+        <Route path="/tasks" element={<TaskList />} />
         <Route path="/workbench/:taskId" element={<RunWorkbench />} />
+        <Route path="/sources/:taskId" element={<SourcesPage />} />
       </Routes>
     </div>
   )

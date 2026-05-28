@@ -5,6 +5,9 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from pathlib import Path
+
+from app.core.config import settings
 from app.core.graph import scout_graph
 from app.core.logging import (
     log_run_completed,
@@ -13,7 +16,6 @@ from app.core.logging import (
     log_task_created,
 )
 from app.core.state import ScoutState
-from app.models.task import TaskSpec, TaskStatus
 from app.storage.sqlite_store import (
     create_task,
     get_task,
@@ -141,6 +143,14 @@ async def api_run_task(task_id: str) -> dict[str, Any]:
             progress_percent=100 if result.get("review_passed") else 80,
         )
 
+        # Generate Run Summary
+        _generate_run_summary(
+            task_id=task_id,
+            run_id=run_id,
+            config=config,
+            result=result,
+        )
+
         if result.get("review_passed"):
             log_run_completed(
                 task_id=task_id,
@@ -197,3 +207,99 @@ def api_get_events(task_id: str) -> list[dict[str, Any]]:
                 events.append(json.loads(line))
 
     return events
+
+
+@router.get("/{task_id}/summary")
+def api_get_summary(task_id: str) -> dict[str, Any]:
+    """Get Run Summary markdown for a task."""
+    summary_path = Path(settings.run_dir) / task_id / "summary.md"
+    if not summary_path.exists():
+        raise HTTPException(status_code=404, detail="Summary not found")
+    with open(summary_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    return {"task_id": task_id, "content": content}
+
+
+def _generate_run_summary(
+    task_id: str,
+    run_id: str,
+    config: dict[str, Any],
+    result: dict[str, Any],
+) -> None:
+    """Generate Run Summary markdown after a run completes."""
+    import subprocess
+
+    report = result.get("report", {})
+    issues = result.get("review_issues", [])
+    node_history = result.get("node_history", [])
+
+    # Get git context
+    try:
+        git_branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=Path(__file__).parent.parent.parent.parent,
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+    except Exception:
+        git_branch = "unknown"
+
+    try:
+        git_commit = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=Path(__file__).parent.parent.parent.parent,
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+    except Exception:
+        git_commit = "unknown"
+
+    # Build summary
+    summary = f"""# Run Summary
+
+- **task_id**: {task_id}
+- **run_id**: {run_id}
+- **git_branch**: {git_branch}
+- **git_commit**: {git_commit}
+- **data_pack**: {config.get("schema_pack", "ai_agent")}
+- **schema_pack**: {config.get("schema_pack", "ai_agent")}
+- **langsmith_trace**: N/A (mock mode)
+- **fallback_used**: mock_llm, mock_data_pack
+- **reviewer_issues**: {len(issues)}
+- **final_report**: {report.get("claim_count", 0)} claims, {(report.get("evidence_coverage", 0) * 100):.0f}% evidence coverage
+- **demo_notes**: End-to-end completed with Reviewer loop. Node history: {' -> '.join(node_history)}
+
+## Reviewer Issues
+
+"""
+    if issues:
+        for issue in issues:
+            status_icon = "✅" if issue.get("status") in ("fixed", "accepted_risk") else "❌"
+            summary += f"- {status_icon} [{issue.get('severity', '')}] {issue.get('issue_type', '')}: {issue.get('message', '')[:100]}\\n"
+    else:
+        summary += "- No issues found.\\n"
+
+    summary += f"""
+## Node Execution History
+
+"""
+    for i, node in enumerate(node_history, 1):
+        summary += f"{i}. {node}\\n"
+
+    summary += f"""
+## Artifacts
+
+- `runtime/artifacts/{task_id}/sources.json`
+- `runtime/artifacts/{task_id}/evidence.json`
+- `runtime/artifacts/{task_id}/profiles.json`
+- `runtime/artifacts/{task_id}/claims.json`
+- `runtime/artifacts/{task_id}/report.json`
+- `runtime/artifacts/{task_id}/review.json`
+- `runtime/logs/{task_id}.jsonl`
+
+Generated at: {datetime.utcnow().isoformat()} UTC
+"""
+
+    # Write to file
+    summary_dir = Path(settings.run_dir) / task_id
+    summary_dir.mkdir(parents=True, exist_ok=True)
+    with open(summary_dir / "summary.md", "w", encoding="utf-8") as f:
+        f.write(summary)

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { getTask, getEvents, getReport, getReview, getEvidence } from '../api/client'
 
 interface LogEvent {
@@ -123,6 +123,10 @@ export default function RunWorkbench() {
       <div style={{ marginBottom: 16, color: '#666' }}>
         状态: <strong>{task.status as string}</strong>
         {!!task.current_node && <span> | 当前节点: {task.current_node as string}</span>}
+        {' '}
+        <Link to={`/sources/${taskId}`} style={{ marginLeft: 16, color: '#2563eb' }}>
+          查看来源与证据 →
+        </Link>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, borderBottom: '1px solid #e0e0e0' }}>
@@ -326,7 +330,14 @@ export default function RunWorkbench() {
                     <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
                       类型: {c.claim_type} | 置信度: {c.confidence * 100}%
                       {(c.evidence_ids || []).length > 0 && (
-                        <span> | 证据: {c.evidence_ids!.join(', ')}</span>
+                        <span> | 证据: {c.evidence_ids!.map((evId, idx) => (
+                          <span key={evId}>
+                            {idx > 0 && ', '}
+                            <Link to={`/sources/${taskId}`} style={{ color: '#2563eb', textDecoration: 'underline' }}>
+                              {evId}
+                            </Link>
+                          </span>
+                        ))}</span>
                       )}
                     </div>
                   </div>

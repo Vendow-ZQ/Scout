@@ -1,0 +1,92 @@
+[
+  {
+    "source_id": "src_olafriend_001",
+    "title": "ola friend 官方产品页",
+    "source_type": "official",
+    "url": "https://www.olafriend.ai",
+    "product": "ola friend",
+    "raw_excerpt": "ola friend 是全球首款 AI 智能耳机，支持实时语音翻译、AI 助手对话、健康监测。搭载自研 AI 芯片，续航 30 小时。定价 1299 元。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_olafriend_002",
+    "title": "ola friend 深度评测",
+    "source_type": "review",
+    "url": "https://example.com/olafriend-review",
+    "product": "ola friend",
+    "raw_excerpt": "ola friend 翻译准确率达 95%，AI 助手响应快。优势是 AI 功能集成度高；短板是音质略逊于传统旗舰耳机，佩戴舒适度一般。目标用户：商务人士、留学生。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_nothing_001",
+    "title": "Nothing Ear (a) 官方介绍",
+    "source_type": "official",
+    "url": "https://nothing.tech",
+    "product": "Nothing Ear (a)",
+    "raw_excerpt": "Nothing Ear (a) 支持 ChatGPT 集成，可通过语音直接与 AI 对话。透明设计，主动降噪，续航 42 小时。定价 $99 / 799 元。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_nothing_002",
+    "title": "Nothing Ear (a) 评测",
+    "source_type": "review",
+    "url": "https://example.com/nothing-ear-review",
+    "product": "Nothing Ear (a)",
+    "raw_excerpt": "ChatGPT 集成是最大亮点，但功能相对基础。音质在同价位表现优秀，设计独特。定价亲民。目标用户：科技爱好者、年轻消费者。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_pixelbuds_001",
+    "title": "Google Pixel Buds Pro 官方",
+    "source_type": "official",
+    "url": "https://store.google.com/pixel-buds",
+    "product": "Pixel Buds Pro",
+    "raw_excerpt": "Pixel Buds Pro 集成 Google Assistant 和 Gemini AI。支持实时翻译、主动降噪、空间音频。续航 31 小时。定价 $229。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_pixelbuds_002",
+    "title": "Pixel Buds Pro 2025 评测",
+    "source_type": "review",
+    "url": "https://example.com/pixel-buds-review",
+    "product": "Pixel Buds Pro",
+    "raw_excerpt": "Gemini 集成使语音交互更智能，翻译功能实用。降噪效果优秀。短板是 iOS 生态支持弱，国内使用受限。目标用户：Android 用户。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_airpods_001",
+    "title": "Apple AirPods Pro 2 官方",
+    "source_type": "official",
+    "url": "https://www.apple.com/airpods-pro",
+    "product": "AirPods Pro 2",
+    "raw_excerpt": "AirPods Pro 2 支持 Siri 和头部追踪个性化空间音频。H2 芯片，主动降噪提升 2 倍。续航 30 小时。定价 $249 / 1899 元。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_airpods_002",
+    "title": "AirPods Pro 2 评测对比",
+    "source_type": "review",
+    "url": "https://example.com/airpods-pro-review",
+    "product": "AirPods Pro 2",
+    "raw_excerpt": "生态系统整合度最高，但 AI 功能相对保守（主要依赖 Siri）。音质、降噪均为顶级。短板：非 Apple 设备体验下降。目标用户：Apple 生态用户。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_galaxybuds_001",
+    "title": "Samsung Galaxy Buds 3 Pro 官方",
+    "source_type": "official",
+    "url": "https://www.samsung.com/galaxy-buds",
+    "product": "Galaxy Buds 3 Pro",
+    "raw_excerpt": "Galaxy Buds 3 Pro 支持 Galaxy AI 实时翻译和同声传译。自适应降噪，高保真音质。续航 26 小时。定价 $229 / 1699 元。",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_market_001",
+    "title": "2025 AI 耳机市场报告",
+    "source_type": "survey",
+    "url": "https://example.com/ai-earbuds-market",
+    "product": null,
+    "raw_excerpt": "AI 耳机市场预计 2025 年达 50 亿美元。核心趋势：从降噪耳机向 AI 交互耳机演进，实时翻译和 AI 助手成为关键差异化功能。",
+    "public_or_authorized": true
+  }
+]
