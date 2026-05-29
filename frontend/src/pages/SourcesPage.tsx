@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { getEvidence, getSources } from '../api/client'
+import { scout } from '../styles/scout-theme'
 
-interface SourceItem {
+interface Source {
   source_id: string
   title: string
   source_type: string
@@ -11,7 +12,7 @@ interface SourceItem {
   url: string | null
 }
 
-interface EvidenceItem {
+interface Evidence {
   evidence_id: string
   source_id: string
   product: string
@@ -22,100 +23,185 @@ interface EvidenceItem {
 
 export default function SourcesPage() {
   const { taskId } = useParams<{ taskId: string }>()
-  const [sources, setSources] = useState<SourceItem[]>([])
-  const [evidence, setEvidence] = useState<EvidenceItem[]>([])
-  const [filterProduct, setFilterProduct] = useState<string>('')
-  const [filterDimension, setFilterDimension] = useState<string>('')
+  const [sources, setSources] = useState<Source[]>([])
+  const [evidence, setEvidence] = useState<Evidence[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!taskId) return
-    async function load() {
-      try {
-        const [s, e] = await Promise.all([
-          getSources(taskId!).catch(() => []),
-          getEvidence(taskId!).catch(() => []),
-        ])
-        setSources(s as SourceItem[])
-        setEvidence(e as EvidenceItem[])
-      } catch (e) {
-        console.error(e)
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
+    Promise.all([
+      getSources(taskId).catch(() => []),
+      getEvidence(taskId).catch(() => []),
+    ]).then(([s, e]) => {
+      setSources(s as Source[])
+      setEvidence(e as Evidence[])
+      setLoading(false)
+    })
   }, [taskId])
 
-  if (loading) return <div>加载中...</div>
-
-  const products = Array.from(new Set(evidence.map(e => e.product).concat(sources.map(s => s.product).filter(Boolean) as string[])))
-  const dimensions = Array.from(new Set(evidence.map(e => e.dimension)))
-
-  const filteredEvidence = evidence.filter(e => {
-    return (!filterProduct || e.product === filterProduct) &&
-           (!filterDimension || e.dimension === filterDimension)
-  })
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: scout.bg.base,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: scout.text.tertiary,
+      }}
+      >
+        <span style={{
+          width: 32,
+          height: 32,
+          border: `3px solid ${scout.accent.steel}`,
+          borderTopColor: scout.accent.cyan,
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite',
+        }} />
+      </div>
+    )
+  }
 
   return (
-    <div>
-      <h2>来源与证据: {taskId}</h2>
+    <div style={{
+      minHeight: '100vh',
+      background: scout.bg.base,
+      color: scout.text.primary,
+      fontFamily: scout.font.sans,
+    }}
+    >
+      {/* Header */}
+      <header style={{
+        padding: `${scout.space.lg} ${scout.space.xxl}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottom: `2px solid ${scout.accent.steel}`,
+      }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: scout.space.lg }}>
+          <Link to="/" style={{
+            fontSize: scout.size.xl,
+            fontWeight: scout.weight.semibold,
+            color: scout.text.primary,
+            textDecoration: 'none',
+          }}
+          >
+            Scout
+          </Link>
+          <span style={{ color: scout.text.quaternary }}>/</span>
+          <span style={{ fontSize: scout.size.base, color: scout.text.secondary }}>
+            Sources
+          </span>
+        </div>
 
-      <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
-        <label>
-          产品筛选
-          <select value={filterProduct} onChange={e => setFilterProduct(e.target.value)} style={{ marginLeft: 8, padding: 4 }}>
-            <option value="">全部</option>
-            {products.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </label>
-        <label>
-          维度筛选
-          <select value={filterDimension} onChange={e => setFilterDimension(e.target.value)} style={{ marginLeft: 8, padding: 4 }}>
-            <option value="">全部</option>
-            {dimensions.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </label>
-      </div>
+        <Link to={`/workbench/${taskId}`} style={{
+          fontSize: scout.size.base,
+          color: scout.text.secondary,
+          textDecoration: 'none',
+        }}
+        >
+          ← Back to workbench
+        </Link>
+      </header>
 
-      <h3>证据卡 ({filteredEvidence.length} 条)</h3>
-      <div style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
-        {filteredEvidence.map(e => {
-          const src = sources.find(s => s.source_id === e.source_id)
-          return (
-            <div key={e.evidence_id} style={{ padding: 16, background: '#f9fafb', borderRadius: 8, borderLeft: '4px solid #2563eb' }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                <strong>{e.product}</strong>
-                <span style={{ padding: '2px 8px', background: '#e0e7ff', borderRadius: 4, fontSize: 12 }}>{e.dimension}</span>
-                <span style={{ fontSize: 12, color: '#6b7280' }}>置信度: {e.confidence * 100}%</span>
-              </div>
-              <div style={{ marginBottom: 8 }}>{e.fact}</div>
-              <div style={{ fontSize: 12, color: '#6b7280' }}>
-                证据ID: {e.evidence_id} | 来源: {src ? src.title : e.source_id}
-                {src?.url && <span> | <a href={src.url} target="_blank" rel="noopener noreferrer">链接</a></span>}
-              </div>
+      {/* Main */}
+      <main style={{
+        maxWidth: 1200,
+        margin: '0 auto',
+        padding: scout.space.xxl,
+      }}
+      >
+        <h1 style={{
+          fontSize: scout.size.xxxl,
+          fontWeight: scout.weight.medium,
+          marginBottom: scout.space.xl,
+        }}
+        >
+          Evidence & Sources
+        </h1>
+
+        {/* Stats */}
+        <div style={{
+          display: 'flex',
+          gap: scout.space.xl,
+          marginBottom: scout.space.xxl,
+        }}
+        >
+          <div style={{
+            padding: `${scout.space.lg} ${scout.space.xl}`,
+            background: scout.bg.surface,
+            border: `2px solid ${scout.accent.steel}`,
+            borderRadius: scout.radius.lg,
+            minWidth: 150,
+          }}
+          >
+            <div style={{ fontSize: scout.size.sm, color: scout.text.tertiary, marginBottom: scout.space.xs }}>
+              Evidence cards
             </div>
-          )
-        })}
-      </div>
-
-      <h3>来源列表 ({sources.length} 条)</h3>
-      <div style={{ display: 'grid', gap: 12 }}>
-        {sources.map(s => (
-          <div key={s.source_id} style={{ padding: 16, background: '#f9fafb', borderRadius: 8 }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
-              <strong>{s.title}</strong>
-              <span style={{ padding: '2px 8px', background: '#fef3c7', borderRadius: 4, fontSize: 12 }}>{s.source_type}</span>
-              {s.product && <span style={{ padding: '2px 8px', background: '#dcfce7', borderRadius: 4, fontSize: 12 }}>{s.product}</span>}
-            </div>
-            <div style={{ fontSize: 14, color: '#4b5563', marginBottom: 4 }}>{s.raw_excerpt}</div>
-            <div style={{ fontSize: 12, color: '#6b7280' }}>
-              ID: {s.source_id}
-              {s.url && <span> | <a href={s.url} target="_blank" rel="noopener noreferrer">{s.url}</a></span>}
+            <div style={{ fontSize: scout.size.xxxl, fontWeight: scout.weight.semibold }}>
+              {evidence.length}
             </div>
           </div>
-        ))}
-      </div>
+          <div style={{
+            padding: `${scout.space.lg} ${scout.space.xl}`,
+            background: scout.bg.surface,
+            border: `2px solid ${scout.accent.steel}`,
+            borderRadius: scout.radius.lg,
+            minWidth: 150,
+          }}
+          >
+            <div style={{ fontSize: scout.size.sm, color: scout.text.tertiary, marginBottom: scout.space.xs }}>
+              Sources
+            </div>
+            <div style={{ fontSize: scout.size.xxxl, fontWeight: scout.weight.semibold }}>
+              {sources.length}
+            </div>
+          </div>
+        </div>
+
+        {/* Evidence List */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: scout.space.lg }}>
+          {evidence.map(ev => {
+            const src = sources.find(s => s.source_id === ev.source_id)
+            return (
+              <div key={ev.evidence_id} style={{
+                padding: scout.space.xl,
+                background: scout.bg.surface,
+                border: `2px solid ${scout.accent.steel}`,
+                borderRadius: scout.radius.lg,
+              }}
+              >
+                <div style={{
+                  display: 'flex',
+                  gap: scout.space.md,
+                  marginBottom: scout.space.md,
+                  fontSize: scout.size.base,
+                }}
+                >
+                  <span style={{ fontWeight: scout.weight.medium }}>{ev.product}</span>
+                  <span style={{ color: scout.text.tertiary }}>/</span>
+                  <span style={{ color: scout.accent.cyan }}>{ev.dimension}</span>
+                  <span style={{ marginLeft: 'auto', color: scout.text.tertiary }}>
+                    {Math.round(ev.confidence * 100)}%
+                  </span>
+                </div>
+                <div style={{ fontSize: scout.size.lg, color: scout.text.secondary, marginBottom: scout.space.md, lineHeight: 1.6 }}>
+                  {ev.fact}
+                </div>
+                <div style={{
+                  fontSize: scout.size.sm,
+                  color: scout.text.tertiary,
+                  fontFamily: scout.font.mono,
+                }}
+                >
+                  {ev.evidence_id} → {src?.title || ev.source_id}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </main>
     </div>
   )
 }

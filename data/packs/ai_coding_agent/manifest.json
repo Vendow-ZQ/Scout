@@ -1,0 +1,31 @@
+{
+  "pack_id": "ai_coding_agent",
+  "name": "AI Coding Agent / AI 编程智能体竞品分析",
+  "description": "以 Trae 为主品，覆盖 Cursor、Windsurf、GitHub Copilot、Claude Code、OpenAI Codex、Devin 的 AI coding agent 竞品调研数据包。数据来自公开官网、官方文档、定价说明、技术论文、行业报道和风险报道。",
+  "version": "1.0.0",
+  "captured_at": "2026-05-28T00:00:00Z",
+  "products": [
+    "Trae",
+    "Cursor",
+    "Windsurf",
+    "GitHub Copilot",
+    "Claude Code",
+    "OpenAI Codex",
+    "Devin"
+  ],
+  "main_product": "Trae",
+  "industry": "AI Coding Agent",
+  "region": "全球 + 中国",
+  "source_count": 36,
+  "schema_pack": "ai_coding_agent",
+  "research_tracks": [
+    "market",
+    "user",
+    "competitor",
+    "product",
+    "tech",
+    "business",
+    "risk"
+  ],
+  "demo_query": "Trae 是字节旗下 AI IDE。请分析 Trae 在 AI coding agent 赛道中的竞品格局、用户需求、能力差异、商业化机会和风险。"
+}

@@ -3,18 +3,45 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 from app.core.config import settings
+from app.core.llm_adapter import llm_adapter
 from app.core.logging import (
     log_artifact_saved,
     log_node_failed,
     log_node_started,
     log_node_succeeded,
 )
+from app.core.prompt_loader import load_agent_prompt
 from app.core.state import ScoutState
 from app.models.evidence import EvidenceCard, SourceRecord
+from app.storage.artifact_store import save_artifact
+from app.storage.markdown_artifacts import save_evidence_markdown, save_sources_markdown
 
 
-def _load_mock_sources(task_id: str, run_id: str, schema_pack: str, use_broken: bool = False) -> list[SourceRecord]:
+class ExtractedEvidenceItem(BaseModel):
+    """LLM output: one extracted evidence card."""
+
+    product: str = Field(..., description="关联产品名称，市场级来源用 'market'")
+    dimension: str = Field(
+        ...,
+        description="分析维度: feature(功能) / pricing(定价) / persona(用户画像) / review(评测) / market(市场) / risk(风险)",
+    )
+    fact: str = Field(..., description="精炼后的事实陈述，50-250字")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="置信度 0-1")
+    reasoning: str = Field(..., description="提取理由，说明为什么这样分类")
+
+
+class EvidenceExtractionOutput(BaseModel):
+    """LLM output schema for evidence extraction."""
+
+    evidence_cards: list[ExtractedEvidenceItem] = Field(
+        ..., description="从所有来源提取的证据卡片列表"
+    )
+
+
+def _load_sources(task_id: str, run_id: str, schema_pack: str, use_broken: bool = False) -> list[SourceRecord]:
     pack_dir = Path(settings.data_pack_dir) / schema_pack
     if use_broken:
         sources_path = pack_dir / "broken" / "missing_pricing_source.json"
@@ -31,46 +58,65 @@ def _load_mock_sources(task_id: str, run_id: str, schema_pack: str, use_broken: 
     return records
 
 
-def _extract_evidence(sources: list[SourceRecord]) -> list[EvidenceCard]:
-    """Extract evidence cards from sources."""
-    evidence = []
+def _extract_evidence_with_llm(
+    sources: list[SourceRecord],
+    task_id: str,
+    run_id: str,
+) -> list[EvidenceCard]:
+    """Use Doubao LLM to intelligently extract evidence cards from sources."""
+    # Prepare input for LLM
+    sources_data = []
     for src in sources:
-        if src.product is None:
-            # Market-level sources create general evidence
-            evidence.append(
-                EvidenceCard(
-                    evidence_id=f"evd_{uuid.uuid4().hex[:8]}",
-                    source_id=src.source_id,
-                    product="market",
-                    dimension="market",
-                    fact=src.raw_excerpt[:200],
-                    confidence=0.8 if src.source_type == "official" else 0.7,
-                )
-            )
-            continue
+        sources_data.append({
+            "source_id": src.source_id,
+            "title": src.title,
+            "source_type": src.source_type,
+            "product": src.product,
+            "raw_excerpt": src.raw_excerpt,
+        })
 
-        # Determine dimension from source type and content
-        dimension = "feature"
-        pricing_keywords = ["定价", "价格", "$", "元", "免费", "付费", "订阅", "月费", "年费"]
-        if any(kw in src.raw_excerpt for kw in pricing_keywords):
-            dimension = "pricing"
-        elif "用户" in src.raw_excerpt or "persona" in src.raw_excerpt.lower() or "目标" in src.raw_excerpt:
-            dimension = "persona"
-        elif "评测" in src.raw_excerpt or "优势" in src.raw_excerpt or "短板" in src.raw_excerpt:
-            dimension = "review"
+    inputs = {"sources": sources_data}
 
-        confidence = 0.85 if src.source_type == "official" else 0.75
-        if src.source_type == "review":
-            confidence = 0.7
+    result = llm_adapter.generate_structured(
+        prompt_name="evidence_extraction",
+        inputs=inputs,
+        output_schema=EvidenceExtractionOutput,
+        system_prompt=load_agent_prompt("researcher"),
+        metadata={"task_id": task_id, "run_id": run_id},
+        temperature=0.2,
+    )
+
+    # Map LLM output to EvidenceCard with proper IDs
+    evidence = []
+    source_map = {s.source_id: s for s in sources}
+
+    for item in result.evidence_cards:
+        # Try to find matching source_id (LLM may reference by source_id or title)
+        source_id = None
+        for sid in source_map:
+            if sid in item.reasoning or sid in item.fact:
+                source_id = sid
+                break
+
+        # Fallback: assign to first source with matching product
+        if source_id is None:
+            for s in sources:
+                if s.product == item.product or (item.product == "market" and s.product is None):
+                    source_id = s.source_id
+                    break
+
+        # Final fallback: first source
+        if source_id is None:
+            source_id = sources[0].source_id if sources else "unknown"
 
         evidence.append(
             EvidenceCard(
                 evidence_id=f"evd_{uuid.uuid4().hex[:8]}",
-                source_id=src.source_id,
-                product=src.product,
-                dimension=dimension,
-                fact=src.raw_excerpt[:250],
-                confidence=confidence,
+                source_id=source_id,
+                product=item.product,
+                dimension=item.dimension,  # type: ignore[arg-type]
+                fact=item.fact,
+                confidence=item.confidence,
             )
         )
 
@@ -78,45 +124,49 @@ def _extract_evidence(sources: list[SourceRecord]) -> list[EvidenceCard]:
 
 
 def researcher_node(state: ScoutState) -> dict[str, Any]:
-    """LangGraph node: Researcher Agent reads sources and extracts evidence."""
+    """LangGraph node: Researcher Agent reads sources and extracts evidence via LLM."""
     task_id = state.get("task_id", "unknown")
     run_id = state.get("run_id", "unknown")
     schema_pack = state.get("schema_pack", "ai_agent")
     retry_count = state.get("retry_count", 0)
+    data_mode = state.get("data_mode", "web")
 
     log_node_started(
         task_id=task_id,
         run_id=run_id,
         node_name="researcher",
         agent_name="ResearcherAgent",
-        payload={"schema_pack": schema_pack, "retry_count": retry_count},
+            payload={"schema_pack": schema_pack, "data_mode": data_mode, "retry_count": retry_count},
     )
 
     try:
-        # Check if this is a retry from reviewer
-        use_broken = state.get("retry_target") is None  # First run uses normal, but for demo we toggle
-        # Actually: for the broken case demo, we want first run to use broken sources
-        # so reviewer can detect the issue. Then on retry, we use normal sources.
-        use_broken = retry_count == 0
+        # Broken case demo is explicit: normal mock runs should use the full source pack.
+        use_broken = data_mode == "mock_broken" and retry_count == 0
 
-        sources = _load_mock_sources(task_id, run_id, schema_pack, use_broken=use_broken)
-        evidence = _extract_evidence(sources)
+        sources = _load_sources(task_id, run_id, schema_pack, use_broken=use_broken)
 
-        # Save artifacts
-        sources_ref = f"runtime/artifacts/{task_id}/sources.json"
-        evidence_ref = f"runtime/artifacts/{task_id}/evidence.json"
+        # Use LLM for intelligent evidence extraction
+        evidence = _extract_evidence_with_llm(sources, task_id, run_id)
 
-        artifact_dir = Path(settings.artifact_dir) / task_id
-        artifact_dir.mkdir(parents=True, exist_ok=True)
+        # Save machine-readable JSON plus human-readable Markdown sidecars.
+        sources_payload = [s.model_dump(mode="json") for s in sources]
+        evidence_payload = [e.model_dump(mode="json") for e in evidence]
+        sources_ref = save_artifact(task_id, "sources.json", sources_payload)
+        evidence_ref = save_artifact(task_id, "evidence.json", evidence_payload)
+        sources_md_ref = save_sources_markdown(
+            task_id,
+            run_id,
+            sources,
+            schema_pack=schema_pack,
+            data_mode=data_mode,
+            use_broken=use_broken,
+        )
+        evidence_md_ref = save_evidence_markdown(task_id, run_id, evidence)
 
-        with open(artifact_dir / "sources.json", "w", encoding="utf-8") as f:
-            json.dump([s.model_dump(mode="json") for s in sources], f, ensure_ascii=False, indent=2)
-
-        with open(artifact_dir / "evidence.json", "w", encoding="utf-8") as f:
-            json.dump([e.model_dump(mode="json") for e in evidence], f, ensure_ascii=False, indent=2)
-
-        log_artifact_saved(task_id, run_id, "sources", sources_ref)
-        log_artifact_saved(task_id, run_id, "evidence", evidence_ref)
+        log_artifact_saved(task_id, run_id, "sources", sources_ref, payload={"format": "json"})
+        log_artifact_saved(task_id, run_id, "sources_markdown", sources_md_ref, payload={"format": "markdown"})
+        log_artifact_saved(task_id, run_id, "evidence", evidence_ref, payload={"format": "json"})
+        log_artifact_saved(task_id, run_id, "evidence_markdown", evidence_md_ref, payload={"format": "markdown"})
 
         log_node_succeeded(
             task_id=task_id,
@@ -124,12 +174,12 @@ def researcher_node(state: ScoutState) -> dict[str, Any]:
             node_name="researcher",
             agent_name="ResearcherAgent",
             payload={"source_count": len(sources), "evidence_count": len(evidence)},
-            artifact_refs=[sources_ref, evidence_ref],
+            artifact_refs=[sources_ref, sources_md_ref, evidence_ref, evidence_md_ref],
         )
 
         return {
-            "sources": [s.model_dump(mode="json") for s in sources],
-            "evidence": [e.model_dump(mode="json") for e in evidence],
+            "sources": sources_payload,
+            "evidence": evidence_payload,
             "current_node": "researcher",
             "node_history": state.get("node_history", []) + ["researcher"],
         }

@@ -1,0 +1,362 @@
+[
+  {
+    "source_id": "src_trae_home_001",
+    "title": "TRAE official homepage",
+    "source_type": "official",
+    "url": "https://www.trae.ai/",
+    "product": "Trae",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "TRAE homepage positions the product around shipping faster and says TRAE SOLO lets the user define the task, review results, and let AI handle the rest. Useful for product positioning and top-level value proposition.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_trae_builder_002",
+    "title": "What is Trae Builder?",
+    "source_type": "docs",
+    "url": "https://traeide.com/docs/what-is-trae-builder",
+    "product": "Trae",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Trae Builder is documented as a mode for developing a complete project from scratch. It actively reads current project files, breaks down tasks, creates or edits files, generates and runs commands, analyzes command execution, supports code-change preview, accept/reject flows, webview preview, and reversion within the latest Builder window.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_trae_solo_003",
+    "title": "SOLO: The Responsive Coding Agent",
+    "source_type": "official",
+    "url": "https://www.trae.ai/solo?showJoin=1",
+    "product": "Trae",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "TRAE SOLO is positioned as a responsive coding agent and visual workspace. The page says TRAE IDE was built for AI-first coding with deep contextual understanding, conversational interaction, and multi-agent collaboration. SOLO works across IDE, terminal, DocView, browser, connector, Figma, requirements, prototyping, frontend, backend, debugging, optimization, build and deployment. It also emphasizes parallel agents, structured plans, TODO lists, review visibility, and real-time context.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_trae_pricing_004",
+    "title": "Upgrading TRAE Membership Benefits",
+    "source_type": "official",
+    "url": "https://www.trae.ai/blog/trae_membership_0213",
+    "product": "Trae",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "TRAE announced a transition to token-based pricing effective February 24, 2026, with Lite, Pro, Pro+, and Ultra tiers ranging from $3 to $100 per month. The post frames the change as larger context windows, bonus usages, and more membership choices. This is important for business model comparison because AI coding tools are moving from flat request bundles toward token/usage economics.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_trae_privacy_risk_005",
+    "title": "The Register: Trae AI IDE telemetry continues even after opt-out, report says",
+    "source_type": "news",
+    "url": "https://www.theregister.com/software/2025/07/28/bytedance-ai-ide-trae-telemetry-continues-even-after-opt-out/838532",
+    "product": "Trae",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "The Register reported allegations that Trae produced extensive network activity even when telemetry was disabled, including system information, usage patterns, performance metrics, machine identifiers, user ID, and project information. The article also notes ByteDance's later clarification that the IDE telemetry toggle only controlled telemetry through the VS Code IDE framework, while other Trae tools were unaffected. Treat as third-party risk signal, not official product claim.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_trae_review_006",
+    "title": "ToolPilot Trae review",
+    "source_type": "review",
+    "url": "https://toolpilot.tools/tools/trae",
+    "product": "Trae",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "ToolPilot describes Trae as a free AI-powered IDE from ByteDance and an alternative to Cursor and Windsurf. It highlights Claude/GPT-4o-style model access, AI chat, inline code generation, multi-file editing, and Builder mode that can plan and execute complex coding tasks across a project. Use as third-party positioning and sentiment, not as a source for exact capability limits.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_cursor_home_001",
+    "title": "Cursor official product page",
+    "source_type": "official",
+    "url": "https://www.cursor.com/features",
+    "product": "Cursor",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Cursor positions itself as a coding agent built to make developers extraordinarily productive. The page emphasizes agents that turn ideas into code, autonomous end-to-end build/test/demo workflows, parallel work, CLI, Slack, GitHub PR review, model choice across OpenAI/Anthropic/Gemini/xAI/Cursor, codebase understanding, secure codebase indexing, and enterprise adoption.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_cursor_background_002",
+    "title": "Cursor Background Agents documentation",
+    "source_type": "docs",
+    "url": "https://docs.cursor.com/background-agent",
+    "product": "Cursor",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Cursor Background Agents are asynchronous remote agents that edit and run code in a remote Ubuntu-based environment. They can clone GitHub repositories, work on a separate branch, install packages, run commands, receive follow-ups, and push changes for handoff. The docs also flag security considerations: internet access, auto-running terminal commands, data retention for a few days, and prompt-injection/exfiltration risk.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_cursor_pricing_003",
+    "title": "Cursor pricing documentation",
+    "source_type": "docs",
+    "url": "https://docs.cursor.com/account/pricing",
+    "product": "Cursor",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Cursor pricing docs describe agent usage as model-inference/API-cost based. Pro includes a pool of agent API usage plus bonus usage; Teams is listed at $40 per user per month with pooled usage and admin controls. Background Agent pricing is tied to selected model API costs. Privacy Mode can be enforced in team contexts, while remote features may require temporary code retention for operation.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_cursor_review_004",
+    "title": "TechRadar 2026 AI tools review mentioning Cursor 3",
+    "source_type": "review",
+    "url": "https://www.techradar.com/best/best-ai-tools",
+    "product": "Cursor",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "TechRadar's 2026 AI tools roundup describes Cursor as strong for daily developers and notes Agent mode can read relevant files, make changes across them, run terminal commands, diagnose errors, and fix them. It also notes Cursor 3 made multi-agent coordination more central through an Agents Window, while warning that very large codebases can still expose context and integration weaknesses.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_windsurf_cascade_001",
+    "title": "Windsurf Cascade documentation",
+    "source_type": "docs",
+    "url": "https://docs.windsurf.com/windsurf/cascade",
+    "product": "Windsurf",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Windsurf Cascade is documented as an agentic AI assistant with Code and Chat modes, tool calling, voice input, checkpoints, real-time awareness, linter integration, web search, memories/rules, MCP, terminal, workflows and app deploys. It has built-in planning through todo lists, can queue messages, call tools, create named checkpoints, revert changes, and run multiple Cascades simultaneously, with race-risk if two Cascades edit the same file.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_windsurf_models_002",
+    "title": "Windsurf model availability documentation",
+    "source_type": "docs",
+    "url": "https://docs.windsurf.com/windsurf/models",
+    "product": "Windsurf",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Windsurf documentation lists available models for Cascade, including Windsurf SWE models and external Claude/GPT-style options depending on plan and availability. The model-selector model matters for product analysis because AI coding IDE quality depends on both the orchestration shell and model access policy.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_windsurf_usage_003",
+    "title": "Windsurf plans and usage documentation",
+    "source_type": "docs",
+    "url": "https://docs.windsurf.com/windsurf/accounts/usage",
+    "product": "Windsurf",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Windsurf's account documentation explains plan and usage tracking across Free, Pro, Teams and Enterprise. Search results and docs indicate token/model usage and quota management have become central to the pricing experience, with extra usage purchase paths for paid plans. Use this for business model and pricing-risk analysis rather than exact plan arithmetic.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_windsurf_acquisition_004",
+    "title": "TechCrunch: Cognition acquires Windsurf",
+    "source_type": "news",
+    "url": "https://techcrunch.com/2025/07/14/cognition-maker-of-the-ai-coding-agent-devin-acquires-windsurf/",
+    "product": "Windsurf",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "TechCrunch reported in July 2025 that Cognition, maker of Devin, acquired Windsurf. The report says Windsurf would continue working on its AI-powered IDE while Cognition works on Devin, making Cognition a more serious competitor across both IDE-assistant and autonomous-agent modalities.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_github_cloud_agent_001",
+    "title": "GitHub Copilot cloud agent docs",
+    "source_type": "docs",
+    "url": "https://docs.github.com/en/copilot/concepts/agents/cloud-agent/about-cloud-agent",
+    "product": "GitHub Copilot",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "GitHub Copilot cloud agent is documented as an autonomous agent in the GitHub workflow. Users can assign it tasks from issues or connected tools; it works through planning, code changes, tests, pull requests and review handoff inside GitHub's governance surface. Important for enterprise positioning because GitHub owns repository, PR, Actions and security workflows.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_github_workflow_002",
+    "title": "GitHub Copilot agents product page",
+    "source_type": "official",
+    "url": "https://github.com/features/copilot/agents",
+    "product": "GitHub Copilot",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "GitHub says Copilot can be assigned from GitHub Issues, Azure Boards, Jira, Raycast, Linear, IDEs and CLI. The page emphasizes that planning context travels with the task and Copilot can be routed from Slack or Teams. This makes Copilot more of a workflow-native teammate than only an IDE plugin.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_github_plans_003",
+    "title": "GitHub Copilot plans",
+    "source_type": "docs",
+    "url": "https://docs.github.com/en/copilot/get-started/plans",
+    "product": "GitHub Copilot",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "GitHub Copilot plan documentation lists Free, Student, Pro, Pro+, Business and Enterprise variants. The docs describe unlimited completions for paid tiers, premium models in Copilot Chat, cloud agent access, monthly premium request allowances, organization policy control, and enterprise-grade management. New self-serve signups were temporarily paused in April 2026 for several plans.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_github_requests_004",
+    "title": "GitHub Copilot requests and billing",
+    "source_type": "docs",
+    "url": "https://docs.github.com/en/copilot/concepts/billing/copilot-requests",
+    "product": "GitHub Copilot",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "GitHub docs state that starting June 1, 2026 Copilot is moving from request-based billing to usage-based billing. The same page says agentic features consume premium requests based on prompts/sessions and model rates, while cloud-agent sessions and steering comments have dedicated metering. This is a strong signal that autonomous coding workloads are too expensive for simple flat pricing.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_claude_overview_001",
+    "title": "Claude Code overview",
+    "source_type": "docs",
+    "url": "https://code.claude.com/docs/en/overview",
+    "product": "Claude Code",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Claude Code is documented as an agentic coding tool that reads the codebase, edits files, runs commands, and integrates with terminal, IDE, desktop app and browser. It helps build features, fix bugs, automate development tasks, work across multiple files/tools, stage changes, write commit messages, create branches and open pull requests.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_claude_usage_002",
+    "title": "Claude Code models, usage and limits",
+    "source_type": "docs",
+    "url": "https://support.claude.com/en/articles/14552983-models-usage-and-limits-in-claude-code",
+    "product": "Claude Code",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Anthropic help docs explain Claude Code usage metering by Enterprise seat pool or API key pay-as-you-go. The model guidance suggests Sonnet for most coding, Opus for hard debugging or architectural work, and Haiku for cheap simple edits. It highlights that long sessions grow context/cost and recommends /clear and /compact to manage usage.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_claude_data_003",
+    "title": "Claude Code data usage",
+    "source_type": "docs",
+    "url": "https://code.claude.com/docs/en/data-usage",
+    "product": "Claude Code",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Claude Code data-usage documentation distinguishes consumer, commercial, API and third-party platform handling. Commercial terms and enterprise deployment matter for teams evaluating whether code and prompts can be used for model improvement, how retention works, and what policies apply to development data.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_claude_agents_004",
+    "title": "Claude Code multi-agent and tool integration overview",
+    "source_type": "docs",
+    "url": "https://code.claude.com/docs/en/overview",
+    "product": "Claude Code",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Claude Code docs describe MCP integration, CLAUDE.md project memory, skills, hooks, multiple Claude Code agents for parallel subtasks, background agents, CI/CD, Slack routing, recurring routines, and remote control. This shows Anthropic's product direction is not only CLI coding but a configurable developer-agent operating system.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_codex_app_001",
+    "title": "OpenAI: Introducing the Codex app",
+    "source_type": "official",
+    "url": "https://openai.com/index/introducing-the-codex-app/",
+    "product": "OpenAI Codex",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "OpenAI introduced the Codex desktop app as a command center for agents. The article says developers now orchestrate multiple agents across projects, delegate work, run tasks in parallel, and supervise substantial work that can span hours, days or weeks. The app supports separate threads, diff review, comments, editor handoff, and worktrees so multiple agents can work on the same repository without conflicts.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_codex_skills_002",
+    "title": "OpenAI Codex app skills, automations and sandboxing",
+    "source_type": "official",
+    "url": "https://openai.com/index/introducing-the-codex-app/",
+    "product": "OpenAI Codex",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "OpenAI says Codex is evolving from writing code into using code to get work done. The Codex app supports skills, automations, personality modes, review queues, native/open-source sandboxing, folder/branch limits, cached web search, permission prompts for elevated actions, and configurable team rules. This source is useful for architecture and trust/safety comparison.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_codex_pricing_003",
+    "title": "OpenAI Help Center: Codex rate card",
+    "source_type": "docs",
+    "url": "https://help.openai.com/en/articles/20001106-codex-rate-card",
+    "product": "OpenAI Codex",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "OpenAI Help Center says Codex pricing was updated in April 2026 to align with API token usage rather than per-message pricing. The rate card maps credits to input, cached input and output tokens and notes that average Codex cost is roughly $100-$200 per developer per month with large variance depending on model choice, number of instances, automations and fast mode.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_codex_system_card_004",
+    "title": "OpenAI Codex system card",
+    "source_type": "docs",
+    "url": "https://cdn.openai.com/pdf/8df7697b-c1b2-4222-be00-1fd3298f351d/codex_system_card.pdf",
+    "product": "OpenAI Codex",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "The Codex system card describes Codex as a cloud-based coding agent powered by an o-series software-engineering-optimized model. It is useful for risk and safety analysis because coding agents can run commands, edit code, create vulnerabilities, or be affected by prompt-injection and sandbox constraints.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_devin_enterprise_001",
+    "title": "Devin enterprise deployment documentation",
+    "source_type": "docs",
+    "url": "https://docs.devin.ai/enterprise/deployment/overview",
+    "product": "Devin",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Devin documentation says Devin can be initiated through web interface, Slack or API and operates in a workspace with shell, browser and code editor. Its architecture separates a cloud-based Brain from a Devbox execution environment. Enterprise deployment choices include multi-tenant cloud and customer-dedicated single-tenant environments with PrivateLink/IPSec options for private resources.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_devin_pricing_002",
+    "title": "Cognition: New self-serve plans for Devin",
+    "source_type": "official",
+    "url": "https://cognition.ai/blog/new-self-serve-plans-for-devin",
+    "product": "Devin",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Cognition announced new Devin self-serve pricing in April 2026: Free, Pro at $20/month, Max at $200/month, Teams usage-based with $80/month minimum spend, and Enterprise custom pricing. The post says old Core and Team plans are retired, products like Ask Devin, DeepWiki and Devin Review begin charging, and pricing should reflect compute-heavy work while giving users better controls and cost guidance.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_devin_release_003",
+    "title": "Devin 2026 release notes",
+    "source_type": "docs",
+    "url": "https://docs.devin.ai/release-notes/2026",
+    "product": "Devin",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Devin 2026 release notes include enterprise controls such as default platform settings, session categorization, usage breakdowns, guardrails, MCP marketplace upgrades, audit logs, session ACU caps, review consumption by repository, and higher-quality Wiki v2 using stronger reasoning and subagents. These show Devin's focus on enterprise agent operations, governance and cost visibility.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_devin_review_004",
+    "title": "VentureBeat: Devin 2.0 price drop and agent-native IDE",
+    "source_type": "news",
+    "url": "https://venturebeat.com/business/devin-2-0-is-here-cognition-slashes-price-of-ai-software-engineer-to-20-per-month-from-500",
+    "product": "Devin",
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "VentureBeat reported Devin 2.0 reduced entry pricing from the prior $500/month level to $20/month minimum with ACU-style usage. It also described an interactive cloud IDE and parallel Devin sessions. Use as market narrative for the shift from enterprise-only autonomous agents toward broader self-serve adoption.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_market_stackoverflow_001",
+    "title": "Stack Overflow 2025 Developer Survey for Leaders: AI adoption and trust",
+    "source_type": "survey",
+    "url": "https://stackoverflow.co/internal/resources/2025-stack-overflow-developer-survey-for-leaders/ai-adoption/",
+    "product": null,
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Stack Overflow reports that 84% of developers use or plan to use AI tools in 2025, up from 76% in 2024, while trust declined: only 29% said they trust AI outputs to be accurate and more developers actively distrust accuracy than trust it. This supports a market insight: adoption is no longer the bottleneck; trust, verification and workflow integration are.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_market_trust_gap_002",
+    "title": "Stack Overflow blog: Closing the developer AI trust gap",
+    "source_type": "survey",
+    "url": "https://stackoverflow.blog/2026/02/18/closing-the-developer-ai-trust-gap/",
+    "product": null,
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Stack Overflow defines developer trust as willingness to deploy AI-generated code to production with minimal review and confidence that tools will not introduce unacceptable risks or technical debt. This source helps shape the user analysis: AI coding agents must earn trust through reviewability, grounding, test execution, rollback and governance.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_market_agent_adoption_003",
+    "title": "arXiv: Agentic Much? Adoption of Coding Agents on GitHub",
+    "source_type": "survey",
+    "url": "https://arxiv.org/abs/2601.18341",
+    "product": null,
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "The paper studies coding-agent traces across 128,018 GitHub projects and estimates adoption of coding agents at 22.20%-28.66%, high for a new tool category. It frames agents such as Cursor, Claude Code and Codex as different from traditional code-completion tools because they can generate complete pull requests from task descriptions.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_market_agent_prs_004",
+    "title": "arXiv: Investigating Autonomous Agent Contributions in the Wild",
+    "source_type": "survey",
+    "url": "https://arxiv.org/abs/2604.00917",
+    "product": null,
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "This 2026 paper builds a dataset of about 110,000 open-source pull requests and compares five coding agents: OpenAI Codex, Claude Code, GitHub Copilot, Google Jules and Devin. It finds agent activity is increasing, but agent-generated contributions show more churn over time than human-authored code. Useful for risk and quality analysis.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_market_mobile_benchmark_005",
+    "title": "arXiv: SWE-Bench Mobile",
+    "source_type": "survey",
+    "url": "https://arxiv.org/abs/2602.09540",
+    "product": null,
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "SWE-Bench Mobile evaluates 22 agent-model configurations across Cursor, Codex, Claude Code and OpenCode on realistic mobile-development tasks with PRDs, Figma designs, a mixed Swift/Objective-C codebase and test suites. The best configurations achieve only 12% task success, and the same model can show up to 6x performance difference across agents. This supports the view that agent design and workflow matter as much as model quality.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_market_swe_bench_006",
+    "title": "Sonar press release: SWE-bench Verified result",
+    "source_type": "news",
+    "url": "https://www.sonarsource.com/company/press-releases/sonar-claims-top-spot-on-swe-bench-leaderboard/",
+    "product": null,
+    "captured_at": "2026-05-28T00:00:00Z",
+    "raw_excerpt": "Sonar announced its Foundation Agent reached 79.2% on SWE-bench Verified and 52.62% on SWE-bench Full in February 2026. This source shows benchmark progress is rapid, but it should be balanced with real-world studies on trust, maintainability and industrial task success.",
+    "public_or_authorized": true
+  }
+]

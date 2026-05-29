@@ -11,6 +11,7 @@ from app.core.state import ScoutState
 
 # Use MemorySaver for MVP demo (supports checkpoint/resume within process)
 checkpointer = MemorySaver()
+MAX_RETRY_COUNT = 1
 
 
 def _route_after_reviewer(state: ScoutState) -> str:
@@ -18,7 +19,7 @@ def _route_after_reviewer(state: ScoutState) -> str:
     if state.get("review_passed"):
         return "end"
     target = state.get("retry_target")
-    if target:
+    if target and state.get("retry_count", 0) <= MAX_RETRY_COUNT:
         return target
     return "end"
 

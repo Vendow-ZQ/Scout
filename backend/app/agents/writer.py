@@ -1,94 +1,63 @@
 import json
 import uuid
-from pathlib import Path
 from typing import Any
 
-from app.core.config import settings
+from pydantic import BaseModel, Field
+
+from app.core.llm_adapter import llm_adapter
 from app.core.logging import (
     log_artifact_saved,
     log_node_failed,
     log_node_started,
     log_node_succeeded,
 )
+from app.core.prompt_loader import load_agent_prompt
 from app.core.state import ScoutState
+from app.storage.artifact_store import save_artifact
+from app.storage.markdown_artifacts import save_report_markdown
 
 
-def _build_report(profiles: list[dict], claims: list[dict]) -> dict[str, Any]:
-    """Build structured report from profiles and claims."""
-    # Filter claims: insight/recommendation must have evidence
-    valid_claims = []
-    for c in claims:
-        if c.get("claim_type") in ("insight", "recommendation"):
-            if len(c.get("evidence_ids", [])) >= 1:
-                valid_claims.append(c)
-            else:
-                # Skip claims without evidence for critical sections
-                continue
-        else:
-            valid_claims.append(c)
+class ComparisonMatrixItem(BaseModel):
+    """One product row in comparison matrix."""
 
-    # Build comparison matrix
-    matrix = {
-        "dimensions": ["功能生态", "定价", "目标用户", "优势", "短板"],
-        "products": [],
-    }
-    for p in profiles:
-        matrix["products"].append({
-            "name": p.get("name", ""),
-            "功能生态": ", ".join(p.get("feature_tree", {}).get("核心功能", [])[:3]),
-            "定价": p.get("pricing_model", {}).get("notes", "未公开"),
-            "目标用户": ", ".join(p.get("target_persona", [])[:2]),
-            "优势": ", ".join(p.get("strengths", [])[:2]),
-            "短板": ", ".join(p.get("weaknesses", [])[:2]),
-        })
-
-    # SWOT analysis
-    swot = {"S": [], "W": [], "O": [], "T": []}
-    for c in valid_claims:
-        ct = c.get("claim_type", "")
-        text = c.get("text", "")
-        if ct == "comparison":
-            swot["S"].append(text)
-        elif ct == "insight":
-            swot["O"].append(text)
-        elif ct == "recommendation":
-            swot["O"].append(text)
-
-    # Ensure SWOT has content
-    if not swot["S"]:
-        swot["S"] = ["各产品功能差异化明显"]
-    if not swot["W"]:
-        swot["W"] = ["部分产品定价策略不明确"]
-    if not swot["O"]:
-        swot["O"] = ["AI Agent 向任务执行演进是重大机会"]
-    if not swot["T"]:
-        swot["T"] = ["竞争激烈，技术迭代快"]
-
-    report = {
-        "report_id": f"rpt_{uuid.uuid4().hex[:8]}",
-        "executive_summary": "本报告对主流 AI Agent 产品进行了竞品分析，涵盖 ChatGPT、Claude、Gemini、Genspark、Manus 五款产品。",
-        "scope": "分析范围包括功能生态、定价模型、目标用户画像、优劣势对比及市场机会。",
-        "comparison_matrix": matrix,
-        "swot": swot,
-        "opportunities": [c for c in valid_claims if c.get("claim_type") == "recommendation"],
-        "key_claims": valid_claims[:12],
-        "claim_count": len(valid_claims),
-        "evidence_coverage": _calc_coverage(valid_claims),
-        "source_appendix": [],
-    }
-
-    return report
+    name: str = Field(..., description="产品名称")
+    dimensions: dict[str, str] = Field(
+        ..., description="各维度对比值，如 {'功能生态': '...', '定价': '...'}"
+    )
 
 
-def _calc_coverage(claims: list[dict]) -> float:
-    if not claims:
-        return 0.0
-    with_evidence = sum(1 for c in claims if len(c.get("evidence_ids", [])) > 0)
-    return round(with_evidence / len(claims), 2)
+class SWOT(BaseModel):
+    """SWOT analysis."""
+
+    S: list[str] = Field(..., description="优势 Strengths")
+    W: list[str] = Field(..., description="劣势 Weaknesses")
+    O: list[str] = Field(..., description="机会 Opportunities")
+    T: list[str] = Field(..., description="威胁 Threats")
+
+
+class ReportOutput(BaseModel):
+    """LLM output schema for writer agent."""
+
+    executive_summary: str = Field(..., description="执行摘要，200-400字，概括分析核心发现")
+    scope: str = Field(..., description="分析范围说明")
+    comparison_matrix: list[ComparisonMatrixItem] = Field(
+        ..., description="竞品对比矩阵，每个产品一行"
+    )
+    swot: SWOT = Field(..., description="SWOT 分析")
+    opportunities: list[dict[str, Any]] = Field(
+        ..., description="市场机会列表，每项包含 text 和 reasoning"
+    )
+    key_claims: list[dict[str, Any]] = Field(
+        ..., description="关键主张列表（从前序节点 claims 中筛选并润色）"
+    )
+    conclusion: str = Field(..., description="结论与行动建议")
+    evidence_coverage_assessment: str = Field(
+        ..., description="对证据覆盖率的评估：哪些 claim 证据充分，哪些不足"
+    )
 
 
 def writer_node(state: ScoutState) -> dict[str, Any]:
-    """LangGraph node: Writer Agent generates report draft."""
+    """LangGraph node: Writer Agent generates report draft via LLM."""
     task_id = state.get("task_id", "unknown")
     run_id = state.get("run_id", "unknown")
 
@@ -102,17 +71,85 @@ def writer_node(state: ScoutState) -> dict[str, Any]:
     try:
         profiles = state.get("profiles", [])
         claims = state.get("claims", [])
-        report = _build_report(profiles, claims)
+        evidence = state.get("evidence", [])
 
-        # Save artifact
-        artifact_dir = Path(settings.artifact_dir) / task_id
-        artifact_dir.mkdir(parents=True, exist_ok=True)
+        # Get task context
+        from app.storage.sqlite_store import get_task
+        task = get_task(task_id)
+        task_config = {}
+        if task and isinstance(task.get("config"), str):
+            task_config = json.loads(task["config"])
+        elif task:
+            task_config = task.get("config", {})
 
-        report_ref = f"runtime/artifacts/{task_id}/report.json"
-        with open(artifact_dir / "report.json", "w", encoding="utf-8") as f:
-            json.dump(report, f, ensure_ascii=False, indent=2)
+        inputs = {
+            "task_context": {
+                "industry": task_config.get("industry", "Unknown"),
+                "main_product": task_config.get("main_product", "Unknown"),
+                "competitors": task_config.get("competitors", []),
+                "analysis_goal": task_config.get("analysis_goal", ""),
+            },
+            "profiles": profiles,
+            "claims": claims,
+            "evidence_summary": {
+                "total_evidence": len(evidence),
+                "products_covered": list(set(e.get("product", "") for e in evidence)),
+                "dimensions_covered": list(set(e.get("dimension", "") for e in evidence)),
+            },
+        }
 
-        log_artifact_saved(task_id, run_id, "report", report_ref)
+        result = llm_adapter.generate_structured(
+            prompt_name="report_generation",
+            inputs=inputs,
+            output_schema=ReportOutput,
+            system_prompt=load_agent_prompt("writer"),
+            metadata={"task_id": task_id, "run_id": run_id},
+            temperature=0.4,
+        )
+
+        # Calculate evidence coverage
+        claim_count = len(claims)
+        claims_with_evidence = sum(
+            1 for c in claims if len(c.get("evidence_ids", [])) > 0
+        )
+        coverage = round(claims_with_evidence / claim_count, 2) if claim_count > 0 else 0.0
+
+        # Build final report
+        report = {
+            "report_id": f"rpt_{uuid.uuid4().hex[:8]}",
+            "executive_summary": result.executive_summary,
+            "scope": result.scope,
+            "comparison_matrix": {
+                "dimensions": list(result.comparison_matrix[0].dimensions.keys()) if result.comparison_matrix else [],
+                "products": [
+                    {
+                        "name": item.name,
+                        **item.dimensions,
+                    }
+                    for item in result.comparison_matrix
+                ],
+            },
+            "swot": {
+                "S": result.swot.S,
+                "W": result.swot.W,
+                "O": result.swot.O,
+                "T": result.swot.T,
+            },
+            "opportunities": result.opportunities,
+            "key_claims": result.key_claims,
+            "conclusion": result.conclusion,
+            "claim_count": claim_count,
+            "evidence_coverage": coverage,
+            "evidence_coverage_assessment": result.evidence_coverage_assessment,
+            "source_appendix": [],
+        }
+
+        # Save machine-readable JSON plus human-readable Markdown sidecar.
+        report_ref = save_artifact(task_id, "report.json", report)
+        report_md_ref = save_report_markdown(task_id, run_id, report)
+
+        log_artifact_saved(task_id, run_id, "report", report_ref, payload={"format": "json"})
+        log_artifact_saved(task_id, run_id, "report_markdown", report_md_ref, payload={"format": "markdown"})
 
         log_node_succeeded(
             task_id=task_id,
@@ -120,10 +157,10 @@ def writer_node(state: ScoutState) -> dict[str, Any]:
             node_name="writer",
             agent_name="WriterAgent",
             payload={
-                "claim_count": report["claim_count"],
-                "evidence_coverage": report["evidence_coverage"],
+                "claim_count": claim_count,
+                "evidence_coverage": coverage,
             },
-            artifact_refs=[report_ref],
+            artifact_refs=[report_ref, report_md_ref],
         )
 
         return {

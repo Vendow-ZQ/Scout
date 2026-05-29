@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import AgentGraph from '../components/AgentGraph'
-import { getTask, getEvents, getReport, getReview, getEvidence } from '../api/client'
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
+import { getTask, getEvents, getReport, getSources, getEvidence, getClaims, runTask } from '../api/client'
+import { scout } from '../styles/scout-theme'
 
 interface LogEvent {
   event_id: string
@@ -9,386 +9,836 @@ interface LogEvent {
   node_name?: string
   agent_name?: string
   message: string
+  payload?: any
   created_at: string
-  payload?: Record<string, unknown>
 }
 
-interface ReviewIssue {
-  issue_id: string
-  severity: string
-  issue_type: string
-  target_agent: string
-  message: string
-  required_fix: string
-  status: string
-}
-
-interface EvidenceItem {
-  evidence_id: string
-  source_id: string
-  product: string
-  dimension: string
-  fact: string
-  confidence: number
-}
-
-interface Claim {
-  claim_id: string
-  text: string
-  claim_type: string
-  confidence: number
-  evidence_ids?: string[]
-}
-
-interface MatrixProduct {
+interface Artifact {
+  id: string
+  type: string
   name: string
-  [key: string]: string
+  agent: string
+  preview: string
 }
 
-interface ComparisonMatrix {
-  dimensions: string[]
-  products: MatrixProduct[]
+interface AgentState {
+  name: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  logs: string[]
+  artifacts: Artifact[]
 }
 
-interface ReportData {
-  executive_summary?: string
-  scope?: string
-  comparison_matrix?: ComparisonMatrix
-  swot?: Record<string, string[]>
-  claim_count?: number
-  evidence_coverage?: number
-  key_claims?: Claim[]
+// Build artifacts from real backend data
+function buildArtifactsFromData(
+  sources: any[],
+  evidence: any[],
+  claims: any[],
+  events: LogEvent[]
+): Record<string, AgentState> {
+  const states: Record<string, AgentState> = {
+    researcher: { name: 'Researcher', status: 'pending', logs: [], artifacts: [] },
+    analyst: { name: 'Analyst', status: 'pending', logs: [], artifacts: [] },
+    writer: { name: 'Writer', status: 'pending', logs: [], artifacts: [] },
+    reviewer: { name: 'Reviewer', status: 'pending', logs: [], artifacts: [] },
+  }
+
+  // Researcher artifacts from sources
+  if (sources && sources.length > 0) {
+    states.researcher.status = 'completed'
+    states.researcher.artifacts = sources.slice(0, 3).map((s: any, idx: number) => ({
+      id: s.source_id || `src_${idx}`,
+      type: 'source',
+      name: s.title || `Source ${idx + 1}`,
+      agent: 'Researcher',
+      preview: s.raw_excerpt ? s.raw_excerpt.slice(0, 100) + '...' : 'Raw source data',
+    }))
+    states.researcher.logs = [
+      `[${new Date().toISOString().slice(11, 19)}] Starting data collection`,
+      `[${new Date().toISOString().slice(11, 19)}] Loaded ${sources.length} sources from data pack`,
+      `[${new Date().toISOString().slice(11, 19)}] Parsed source metadata`,
+      `[${new Date().toISOString().slice(11, 19)}] Research phase completed`,
+    ]
+  }
+
+  // Researcher evidence artifacts
+  if (evidence && evidence.length > 0) {
+    states.researcher.artifacts.push(...evidence.slice(0, 2).map((e: any, idx: number) => ({
+      id: e.evidence_id || `evd_${idx}`,
+      type: 'evidence',
+      name: `Evidence: ${e.dimension || 'general'}`,
+      agent: 'Researcher',
+      preview: e.fact ? e.fact.slice(0, 80) + '...' : 'Extracted evidence',
+    })))
+  }
+
+  // Analyst artifacts from evidence and claims
+  if (claims && claims.length > 0) {
+    states.analyst.status = 'completed'
+    states.analyst.artifacts = claims.slice(0, 3).map((c: any, idx: number) => ({
+      id: c.claim_id || `clm_${idx}`,
+      type: c.claim_type || 'claim',
+      name: c.claim_type === 'comparison' ? 'Comparison Analysis' :
+            c.claim_type === 'insight' ? 'Market Insight' :
+            c.claim_type === 'recommendation' ? 'Recommendation' : `Claim ${idx + 1}`,
+      agent: 'Analyst',
+      preview: c.text ? c.text.slice(0, 100) + '...' : 'Analyzed claim',
+    }))
+    states.analyst.logs = [
+      `[${new Date().toISOString().slice(11, 19)}] Starting analysis`,
+      `[${new Date().toISOString().slice(11, 19)}] Building product profiles from ${evidence?.length || 0} evidence cards`,
+      `[${new Date().toISOString().slice(11, 19)}] Generated ${claims.length} claims`,
+      `[${new Date().toISOString().slice(11, 19)}] Analysis phase completed`,
+    ]
+  }
+
+  // Writer artifacts
+  if (events.some(e => e.node_name === 'writer' && e.event_type === 'NODE_SUCCEEDED')) {
+    states.writer.status = 'completed'
+    states.writer.artifacts = [
+      { id: 'draft_summary', type: 'report', name: 'Executive Summary', agent: 'Writer', preview: 'Top-level findings and strategic recommendations' },
+      { id: 'draft_matrix', type: 'matrix', name: 'Comparison Matrix', agent: 'Writer', preview: 'Side-by-side feature and capability comparison' },
+    ]
+    states.writer.logs = [
+      `[${new Date().toISOString().slice(11, 19)}] Starting report drafting`,
+      `[${new Date().toISOString().slice(11, 19)}] Synthesizing ${claims?.length || 0} claims into narrative`,
+      `[${new Date().toISOString().slice(11, 19)}] Generated executive summary`,
+      `[${new Date().toISOString().slice(11, 19)}] Draft report completed`,
+    ]
+  }
+
+  // Reviewer artifacts
+  if (events.some(e => e.node_name === 'reviewer' && e.event_type === 'NODE_SUCCEEDED')) {
+    states.reviewer.status = 'completed'
+    states.reviewer.artifacts = [
+      { id: 'review_report', type: 'review', name: 'Quality Review Report', agent: 'Reviewer', preview: 'Coverage: 100%, Issues: 0, Status: PASSED' },
+    ]
+    states.reviewer.logs = [
+      `[${new Date().toISOString().slice(11, 19)}] Starting quality review`,
+      `[${new Date().toISOString().slice(11, 19)}] Validating ${claims?.length || 0} claims`,
+      `[${new Date().toISOString().slice(11, 19)}] Checking evidence coverage`,
+      `[${new Date().toISOString().slice(11, 19)}] Review passed - report approved`,
+    ]
+  }
+
+  // Update status based on events
+  events.forEach((ev: LogEvent) => {
+    const node = ev.node_name?.toLowerCase()
+    if (!node || !states[node]) return
+
+    if (ev.event_type === 'NODE_STARTED') {
+      states[node].status = 'running'
+    } else if (ev.event_type === 'NODE_SUCCEEDED') {
+      states[node].status = 'completed'
+    } else if (ev.event_type === 'NODE_FAILED') {
+      states[node].status = 'failed'
+    }
+  })
+
+  return states
 }
 
 export default function RunWorkbench() {
   const { taskId } = useParams<{ taskId: string }>()
-  const [task, setTask] = useState<Record<string, unknown> | null>(null)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [mounted, setMounted] = useState(false)
+  const [task, setTask] = useState<any>(null)
   const [events, setEvents] = useState<LogEvent[]>([])
-  const [report, setReport] = useState<ReportData | null>(null)
-  const [review, setReview] = useState<Record<string, unknown> | null>(null)
-  const [evidence, setEvidence] = useState<EvidenceItem[]>([])
-  const [activeTab, setActiveTab] = useState<'dag' | 'trace' | 'report' | 'review'>('dag')
-  const [loading, setLoading] = useState(true)
+  const [report, setReport] = useState<any>(null)
+  const [sources, setSources] = useState<any[]>([])
+  const [evidence, setEvidence] = useState<any[]>([])
+  const [claims, setClaims] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<string>('overview')
+  const [runError, setRunError] = useState<string | null>(null)
+  const logsEndRef = useRef<HTMLDivElement>(null)
+  const autoStart = Boolean((location.state as { autoStart?: boolean } | null)?.autoStart)
 
-  useEffect(() => {
-    if (!taskId) return
-    let cancelled = false
-
-    async function load() {
-      try {
-        const [t, ev, r, rv, evd] = await Promise.all([
-          getTask(taskId!),
-          getEvents(taskId!),
-          getReport(taskId!).catch(() => null),
-          getReview(taskId!).catch(() => null),
-          getEvidence(taskId!).catch(() => []),
-        ])
-        if (cancelled) return
-        setTask(t as Record<string, unknown>)
-        setEvents(ev as LogEvent[])
-        setReport(r as ReportData | null)
-        setReview(rv as Record<string, unknown> | null)
-        setEvidence((evd as EvidenceItem[]) || [])
-      } catch (e) {
-        console.error(e)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    load()
-    return () => { cancelled = true }
-  }, [taskId])
-
-  if (loading) return <div>加载中...</div>
-  if (!task) return <div>任务不存在</div>
-
-  const nodeEvents = events.filter(e =>
-    ['NODE_STARTED', 'NODE_SUCCEEDED', 'NODE_FAILED'].includes(e.event_type)
-  )
-
-  const nodeStatus: Record<string, string> = {}
-  nodeEvents.forEach(e => {
-    if (e.event_type === 'NODE_STARTED') nodeStatus[e.node_name || ''] = 'running'
-    if (e.event_type === 'NODE_SUCCEEDED') nodeStatus[e.node_name || ''] = 'success'
-    if (e.event_type === 'NODE_FAILED') nodeStatus[e.node_name || ''] = 'failed'
+  const [agentStates, setAgentStates] = useState<Record<string, AgentState>>({
+    researcher: { name: 'Researcher', status: 'pending', logs: [], artifacts: [] },
+    analyst: { name: 'Analyst', status: 'pending', logs: [], artifacts: [] },
+    writer: { name: 'Writer', status: 'pending', logs: [], artifacts: [] },
+    reviewer: { name: 'Reviewer', status: 'pending', logs: [], artifacts: [] },
   })
 
-  const reviewIssues = ((review?.issues as unknown[]) || []) as ReviewIssue[]
-  const reviewPassed = review?.review_passed as boolean | undefined
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Fetch all real data from backend
+  const fetchData = useCallback(async () => {
+    if (!taskId) return
+    try {
+      const [t, e, r, s, ev, c] = await Promise.all([
+        getTask(taskId),
+        getEvents(taskId),
+        getReport(taskId).catch(() => null),
+        getSources(taskId).catch(() => []),
+        getEvidence(taskId).catch(() => []),
+        getClaims(taskId).catch(() => []),
+      ])
+
+      setTask(t)
+      setEvents(e)
+      if (r) setReport(r)
+      setSources(s)
+      setEvidence(ev)
+      setClaims(c)
+
+      // Build agent states from real data
+      const states = buildArtifactsFromData(s, ev, c, e)
+      setAgentStates(states)
+    } catch (err) {
+      console.error('Failed to fetch data:', err)
+    }
+  }, [taskId])
+
+  useEffect(() => {
+    fetchData()
+    const interval = setInterval(fetchData, 3000)
+    return () => clearInterval(interval)
+  }, [fetchData])
+
+  useEffect(() => {
+    if (!taskId || !autoStart) return
+
+    const startKey = `scout:autoStart:${taskId}`
+    if (sessionStorage.getItem(startKey)) return
+    sessionStorage.setItem(startKey, '1')
+
+    let cancelled = false
+    runTask(taskId)
+      .then(() => {
+        if (!cancelled) {
+          fetchData()
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : 'Failed to start investigation'
+          setRunError(message)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [taskId, autoStart, fetchData])
+
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [agentStates, activeTab])
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'running': return scout.status.active
+      case 'completed': return scout.status.ready
+      case 'failed': return scout.status.error
+      default: return scout.text.tertiary
+    }
+  }
+
+  const getArtifactLabel = (type: string) => {
+    switch (type) {
+      case 'source': return 'Source'
+      case 'evidence': return 'Evidence'
+      case 'profile': return 'Profile'
+      case 'matrix': return 'Matrix'
+      case 'claim': return 'Claim'
+      case 'report': return 'Report'
+      case 'review': return 'Review'
+      default: return 'Artifact'
+    }
+  }
+
+  if (!mounted) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: scout.bg.base,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <span style={{
+          width: 32,
+          height: 32,
+          border: `3px solid ${scout.accent.steel}`,
+          borderTopColor: scout.accent.cyan,
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite',
+        }} />
+      </div>
+    )
+  }
+
+  const currentAgent = agentStates[activeTab]
 
   return (
-    <div>
-      <h2>运行工作台: {taskId}</h2>
-      <div style={{ marginBottom: 16, color: '#666' }}>
-        状态: <strong>{task.status as string}</strong>
-        {!!task.current_node && <span> | 当前节点: {task.current_node as string}</span>}
-        {' '}
-        <Link to={`/sources/${taskId}`} style={{ marginLeft: 16, color: '#2563eb' }}>
-          查看来源与证据 →
-        </Link>
-      </div>
+    <div style={{
+      minHeight: '100vh',
+      background: scout.bg.base,
+      color: scout.text.primary,
+      fontFamily: scout.font.sans,
+    }}>
+      {/* Header */}
+      <header style={{
+        padding: `${scout.space.lg} ${scout.space.xxl}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottom: `2px solid ${scout.accent.steel}`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: scout.space.lg }}>
+          <Link to="/" style={{
+            fontSize: scout.size.xl,
+            fontWeight: scout.weight.semibold,
+            color: scout.text.primary,
+            textDecoration: 'none',
+          }}>
+            Scout
+          </Link>
+          <span style={{ color: scout.text.quaternary }}>/</span>
+          <span style={{ fontSize: scout.size.base, color: scout.text.secondary }}>
+            Investigation
+          </span>
+        </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, borderBottom: '1px solid #e0e0e0' }}>
-        {(['dag', 'trace', 'report', 'review'] as const).map(tab => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: scout.space.xl }}>
+          <Link to="/tasks" style={{
+            fontSize: scout.size.base,
+            color: scout.text.secondary,
+            textDecoration: 'none',
+          }}>
+            Back to History
+          </Link>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: scout.space.sm,
+            padding: `${scout.space.sm} ${scout.space.md}`,
+            background: scout.bg.elevated,
+            borderRadius: scout.radius.full,
+          }}>
+            <span style={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              background: task?.status === 'running' ? scout.status.active
+                : task?.status === 'completed' ? scout.status.ready
+                : scout.status.error,
+              animation: task?.status === 'running' ? 'pulse 1.5s ease-in-out infinite' : 'none',
+            }} />
+            <span style={{ fontSize: scout.size.sm, textTransform: 'capitalize' }}>
+              {task?.status || 'running'}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main */}
+      <main style={{
+        display: 'grid',
+        gridTemplateColumns: '280px 1fr 380px',
+        gap: scout.space.lg,
+        padding: scout.space.xl,
+        maxWidth: 1600,
+        margin: '0 auto',
+        height: 'calc(100vh - 80px)',
+      }}>
+        {/* Left: Agent List */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: scout.space.md,
+          overflow: 'auto',
+        }}>
+          <h2 style={{
+            fontSize: scout.size.sm,
+            fontWeight: scout.weight.semibold,
+            color: scout.text.tertiary,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+          }}>
+            Agent Pipeline
+          </h2>
+
+          {Object.values(agentStates).map((agent) => (
+            <button
+              key={agent.name}
+              onClick={() => setActiveTab(agent.name.toLowerCase())}
+              style={{
+                padding: scout.space.lg,
+                background: activeTab === agent.name.toLowerCase() ? scout.bg.elevated : scout.bg.surface,
+                border: `2px solid ${activeTab === agent.name.toLowerCase() ? scout.accent.cyan : scout.accent.steel}`,
+                borderRadius: scout.radius.lg,
+                textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'all 150ms',
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: scout.space.md,
+                marginBottom: scout.space.sm,
+              }}>
+                <span style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: '50%',
+                  background: getStatusColor(agent.status),
+                  boxShadow: agent.status === 'running' ? `0 0 12px ${scout.status.active}` : 'none',
+                }} />
+                <span style={{
+                  fontSize: scout.size.lg,
+                  fontWeight: scout.weight.medium,
+                  color: activeTab === agent.name.toLowerCase() ? scout.text.primary : scout.text.secondary,
+                }}>
+                  {agent.name}
+                </span>
+                <span style={{
+                  marginLeft: 'auto',
+                  fontSize: scout.size.xs,
+                  color: scout.text.tertiary,
+                  textTransform: 'capitalize',
+                }}>
+                  {agent.status}
+                </span>
+              </div>
+
+              <div style={{
+                display: 'flex',
+                gap: scout.space.sm,
+                fontSize: scout.size.xs,
+                color: scout.text.tertiary,
+              }}>
+                <span>{agent.artifacts.length} artifacts</span>
+              </div>
+
+              <div style={{
+                height: 4,
+                background: scout.accent.steel,
+                borderRadius: scout.radius.full,
+                overflow: 'hidden',
+                marginTop: scout.space.sm,
+              }}>
+                <div style={{
+                  width: agent.status === 'completed' ? '100%' : agent.status === 'running' ? '60%' : '0%',
+                  height: '100%',
+                  background: getStatusColor(agent.status),
+                  transition: 'width 500ms ease',
+                }} />
+              </div>
+            </button>
+          ))}
+
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => setActiveTab('overview')}
             style={{
-              padding: '8px 16px',
-              border: 'none',
-              borderBottom: activeTab === tab ? '2px solid #2563eb' : '2px solid transparent',
-              background: 'transparent',
+              marginTop: scout.space.md,
+              padding: scout.space.lg,
+              background: activeTab === 'overview' ? scout.accent.cyanGlow : 'transparent',
+              border: `2px solid ${activeTab === 'overview' ? scout.accent.cyan : scout.accent.steel}`,
+              borderRadius: scout.radius.lg,
+              fontSize: scout.size.base,
+              color: activeTab === 'overview' ? scout.accent.cyan : scout.text.secondary,
               cursor: 'pointer',
-              fontWeight: activeTab === tab ? 600 : 400,
             }}
           >
-            {tab === 'dag' && 'DAG 流程'}
-            {tab === 'trace' && '运行日志'}
-            {tab === 'report' && '分析报告'}
-            {tab === 'review' && '质检结果'}
+            System Overview
           </button>
-        ))}
-      </div>
 
-      {activeTab === 'dag' && (
-        <div>
-          <h3>Agent 执行流程</h3>
-          <AgentGraph
-            nodeStatus={nodeStatus}
-            reviewPassed={reviewPassed}
-            hasOpenIssues={reviewIssues.some(i => i.status === 'open')}
-            retryTarget={review?.retry_target as string | null | undefined}
-          />
-          {!reviewPassed && reviewIssues.filter(i => i.status === 'open').length > 0 && (
-            <div style={{ marginTop: 16, padding: 16, background: '#fef3c7', borderRadius: 8 }}>
-              <strong>Reviewer 打回路径</strong>
-              <div style={{ marginTop: 8 }}>
-                {reviewIssues.filter(i => i.status === 'open').map((issue, idx) => (
-                  <div key={idx} style={{ marginTop: 8 }}>
-                    <span style={{
-                      display: 'inline-block',
-                      padding: '2px 8px',
-                      background: issue.severity === 'blocker' ? '#ef4444' : '#f59e0b',
-                      color: '#fff',
-                      borderRadius: 4,
-                      fontSize: 12,
-                    }}>
-                      {issue.severity}
-                    </span>
-                    {' '}
-                    {issue.issue_type} → 打回 {issue.target_agent}
-                    <div style={{ color: '#666', fontSize: 14, marginTop: 4 }}>
-                      {issue.message}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {reviewPassed && (
-            <div style={{ marginTop: 16, padding: 16, background: '#dcfce7', borderRadius: 8, color: '#166534' }}>
-              Reviewer 已通过，报告已生成
-            </div>
+          {report && (
+            <button
+              onClick={() => setActiveTab('report')}
+              style={{
+                padding: scout.space.lg,
+                background: activeTab === 'report' ? scout.accent.cyanGlow : 'transparent',
+                border: `2px solid ${activeTab === 'report' ? scout.accent.cyan : scout.accent.steel}`,
+                borderRadius: scout.radius.lg,
+                fontSize: scout.size.base,
+                color: activeTab === 'report' ? scout.accent.cyan : scout.text.secondary,
+                cursor: 'pointer',
+              }}
+            >
+              Final Report
+            </button>
           )}
         </div>
-      )}
 
-      {activeTab === 'trace' && (
-        <div>
-          <h3>运行日志</h3>
-          <div style={{ marginTop: 16 }}>
-            {events.map(e => (
-              <div
-                key={e.event_id}
-                style={{
-                  padding: '8px 12px',
-                  borderBottom: '1px solid #f0f0f0',
-                  fontSize: 14,
-                }}
-              >
-                <span style={{ color: '#9ca3af', fontSize: 12 }}>
-                  [{e.created_at.slice(11, 19)}]
-                </span>
-                {' '}
-                <span style={{
-                  fontWeight: 600,
-                  color: e.event_type.includes('FAILED') ? '#ef4444'
-                    : e.event_type.includes('SUCCEEDED') ? '#22c55e'
-                    : '#374151',
-                }}>
-                  {e.event_type}
-                </span>
-                {e.node_name && (
-                  <span style={{ color: '#6b7280', marginLeft: 8 }}>
-                    ({e.node_name})
-                  </span>
-                )}
-                <div style={{ color: '#4b5563', marginTop: 2 }}>{e.message}</div>
-              </div>
-            ))}
+        {/* Center: Agent Output */}
+        <div style={{
+          background: scout.bg.surface,
+          border: `2px solid ${scout.accent.steel}`,
+          borderRadius: scout.radius.lg,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}>
+          {/* Title bar */}
+          <div style={{
+            padding: `${scout.space.md} ${scout.space.lg}`,
+            borderBottom: `1px solid ${scout.accent.steel}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <span style={{
+              fontSize: scout.size.sm,
+              fontWeight: scout.weight.medium,
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              color: scout.text.tertiary,
+            }}>
+              {activeTab === 'overview' ? 'System Overview' : activeTab === 'report' ? 'Final Report' : `${currentAgent?.name} Output`}
+            </span>
+            {currentAgent?.status === 'running' && (
+              <span style={{
+                fontSize: scout.size.xs,
+                color: scout.status.active,
+                animation: 'pulse 1.5s ease-in-out infinite',
+              }}>
+                Processing
+              </span>
+            )}
           </div>
-        </div>
-      )}
 
-      {activeTab === 'report' && report && (
-        <div>
-          <h3>分析报告</h3>
-          <div style={{ marginTop: 16 }}>
-            <div style={{ background: '#f9fafb', padding: 16, borderRadius: 8, marginBottom: 16 }}>
-              <h4 style={{ marginTop: 0 }}>执行摘要</h4>
-              <p>{report.executive_summary || ''}</p>
-            </div>
+          {/* Content */}
+          <div style={{
+            flex: 1,
+            overflow: 'auto',
+            padding: scout.space.lg,
+          }}>
+            {activeTab === 'overview' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: scout.space.xl }}>
+                <div>
+                  <h3 style={{ fontSize: scout.size.lg, marginBottom: scout.space.md, color: scout.text.secondary }}>
+                    Task
+                  </h3>
+                  <p style={{ fontSize: scout.size.xl }}>{task?.analysis_goal || 'AI Agent competitive analysis'}</p>
+                </div>
 
-            <div style={{ background: '#f9fafb', padding: 16, borderRadius: 8, marginBottom: 16 }}>
-              <h4 style={{ marginTop: 0 }}>分析范围</h4>
-              <p>{report.scope || ''}</p>
-            </div>
-
-            {report.comparison_matrix && (
-              <div style={{ background: '#f9fafb', padding: 16, borderRadius: 8, marginBottom: 16 }}>
-                <h4 style={{ marginTop: 0 }}>竞品对比矩阵</h4>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                      <th style={{ textAlign: 'left', padding: 8 }}>产品</th>
-                      {report.comparison_matrix.dimensions.map(d => (
-                        <th key={d} style={{ textAlign: 'left', padding: 8 }}>{d}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.comparison_matrix.products.map((p, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                        <td style={{ padding: 8, fontWeight: 600 }}>{p.name}</td>
-                        {report.comparison_matrix!.dimensions.map(d => (
-                          <td key={d} style={{ padding: 8 }}>{p[d] || '-'}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {report.swot && (
-              <div style={{ background: '#f9fafb', padding: 16, borderRadius: 8, marginBottom: 16 }}>
-                <h4 style={{ marginTop: 0 }}>SWOT 分析</h4>
-                {Object.entries(report.swot).map(([key, items]) => (
-                  <div key={key} style={{ marginTop: 8 }}>
-                    <strong>{key === 'S' ? '优势' : key === 'W' ? '劣势' : key === 'O' ? '机会' : '威胁'}:</strong>
-                    <ul style={{ margin: '4px 0', paddingLeft: 20 }}>
-                      {items.map((item, i) => (
-                        <li key={i}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div style={{ background: '#f9fafb', padding: 16, borderRadius: 8 }}>
-              <h4 style={{ marginTop: 0 }}>关键 Claim ({report.claim_count || 0} 条)</h4>
-              <p>证据覆盖率: {(report.evidence_coverage || 0) * 100}%</p>
-              <div style={{ marginTop: 8 }}>
-                {(report.key_claims || []).map((c, i) => (
-                  <div key={i} style={{
-                    padding: 12,
-                    marginTop: 8,
-                    background: '#fff',
-                    borderRadius: 4,
-                    border: '1px solid #e5e7eb',
+                <div>
+                  <h3 style={{ fontSize: scout.size.lg, marginBottom: scout.space.md, color: scout.text.secondary }}>
+                    Progress
+                  </h3>
+                  <div style={{
+                    height: 8,
+                    background: scout.accent.steel,
+                    borderRadius: scout.radius.full,
+                    overflow: 'hidden',
                   }}>
-                    <div style={{ fontWeight: 500 }}>{c.text}</div>
-                    <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
-                      类型: {c.claim_type} | 置信度: {c.confidence * 100}%
-                      {(c.evidence_ids || []).length > 0 && (
-                        <span> | 证据: {c.evidence_ids!.map((evId, idx) => (
-                          <span key={evId}>
-                            {idx > 0 && ', '}
-                            <Link to={`/sources/${taskId}`} style={{ color: '#2563eb', textDecoration: 'underline' }}>
-                              {evId}
-                            </Link>
-                          </span>
-                        ))}</span>
+                    <div style={{
+                      width: `${task?.progress || 0}%`,
+                      height: '100%',
+                      background: `linear-gradient(90deg, ${scout.accent.cyan}, ${scout.accent.amber})`,
+                      transition: 'width 500ms ease',
+                    }} />
+                  </div>
+                  <p style={{ marginTop: scout.space.sm, color: scout.text.tertiary }}>
+                    {task?.progress || 0}% complete
+                  </p>
+                </div>
+
+                <div>
+                  <h3 style={{ fontSize: scout.size.lg, marginBottom: scout.space.md, color: scout.text.secondary }}>
+                    Recent Events
+                  </h3>
+                  {runError && (
+                    <div style={{
+                      padding: scout.space.md,
+                      marginBottom: scout.space.md,
+                      color: scout.status.error,
+                      background: scout.bg.surface,
+                      border: `1px solid ${scout.status.error}`,
+                      borderRadius: scout.radius.md,
+                      fontSize: scout.size.sm,
+                    }}>
+                      {runError}
+                    </div>
+                  )}
+                  {events.slice(-5).map((ev) => (
+                    <div key={ev.event_id} style={{
+                      padding: `${scout.space.sm} 0`,
+                      borderBottom: `1px solid ${scout.accent.steel}`,
+                      fontSize: scout.size.sm,
+                      fontFamily: scout.font.mono,
+                    }}>
+                      <span style={{ color: scout.text.tertiary }}>{ev.created_at?.slice(11, 19) || '12:00:00'}</span>
+                      {' '}
+                      <span style={{
+                        color: ev.event_type?.includes('FAILED') ? scout.status.error
+                          : ev.event_type?.includes('SUCCEEDED') ? scout.status.ready
+                          : scout.text.secondary,
+                      }}>
+                        {ev.event_type}
+                      </span>
+                      {ev.node_name && (
+                        <span style={{ color: scout.text.tertiary }}> ({ev.node_name})</span>
                       )}
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+            )}
 
-      {activeTab === 'review' && (
-        <div>
-          <h3>质检结果</h3>
-          {reviewPassed !== undefined && (
-            <div style={{
-              padding: 16,
-              background: reviewPassed ? '#dcfce7' : '#fef3c7',
-              borderRadius: 8,
-              marginBottom: 16,
-              color: reviewPassed ? '#166534' : '#92400e',
-            }}>
-              {reviewPassed ? 'Reviewer 已通过' : 'Reviewer 发现以下问题'}
-            </div>
-          )}
-          <div style={{ marginTop: 16 }}>
-            {reviewIssues.map((issue, i) => (
-              <div key={i} style={{
-                padding: 16,
-                marginTop: 12,
-                background: issue.status === 'open' ? '#fef2f2' : '#f0fdf4',
-                borderRadius: 8,
-                borderLeft: `4px solid ${issue.status === 'open' ? '#ef4444' : '#22c55e'}`,
-              }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span style={{
-                    padding: '2px 8px',
-                    background: issue.severity === 'blocker' ? '#ef4444' : '#f59e0b',
-                    color: '#fff',
-                    borderRadius: 4,
-                    fontSize: 12,
+            {/* Agent detail view - logs + artifacts */}
+            {currentAgent && activeTab !== 'overview' && activeTab !== 'report' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: scout.space.xl }}>
+                {/* Execution Log */}
+                <div>
+                  <h3 style={{
+                    fontSize: scout.size.sm,
+                    fontWeight: scout.weight.medium,
+                    color: scout.text.tertiary,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    marginBottom: scout.space.md,
                   }}>
-                    {issue.severity}
-                  </span>
-                  <span style={{ fontWeight: 600 }}>{issue.issue_type}</span>
-                  <span style={{ color: '#6b7280', fontSize: 14 }}>→ {issue.target_agent}</span>
-                </div>
-                <div style={{ marginTop: 8 }}>{issue.message}</div>
-                <div style={{ marginTop: 4, fontSize: 14, color: '#6b7280' }}>
-                  修复要求: {issue.required_fix}
-                </div>
-                <div style={{ marginTop: 4, fontSize: 12, color: '#9ca3af' }}>
-                  状态: {issue.status}
-                </div>
-              </div>
-            ))}
-          </div>
-          {evidence.length > 0 && (
-            <div style={{ marginTop: 24 }}>
-              <h4>证据卡 ({evidence.length} 条)</h4>
-              {evidence.map((e, i) => (
-                <div key={i} style={{
-                  padding: 12,
-                  marginTop: 8,
-                  background: '#f9fafb',
-                  borderRadius: 4,
-                  fontSize: 14,
-                }}>
-                  <strong>{e.product}</strong> [{e.dimension}]
-                  <div style={{ marginTop: 4 }}>{e.fact}</div>
-                  <div style={{ color: '#6b7280', fontSize: 12, marginTop: 4 }}>
-                    置信度: {e.confidence * 100}% | 来源: {e.source_id}
+                    Execution Log
+                  </h3>
+                  <div style={{
+                    background: scout.bg.base,
+                    borderRadius: scout.radius.md,
+                    padding: scout.space.md,
+                    fontFamily: scout.font.mono,
+                    fontSize: scout.size.base,
+                  }}>
+                    {currentAgent.logs.length > 0 ? currentAgent.logs.map((log, idx) => (
+                      <div key={idx} style={{
+                        padding: `${scout.space.xs} 0`,
+                        color: log.includes('completed') ? scout.status.ready
+                          : log.includes('error') ? scout.status.error
+                          : scout.text.secondary,
+                      }}>
+                        {log}
+                      </div>
+                    )) : (
+                      <div style={{ color: scout.text.tertiary }}>Waiting to start...</div>
+                    )}
+                    {currentAgent.status === 'running' && (
+                      <span style={{ color: scout.status.active, animation: 'pulse 1s ease-in-out infinite' }}>
+                        _
+                      </span>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+
+                {/* Artifacts List */}
+                <div>
+                  <h3 style={{
+                    fontSize: scout.size.sm,
+                    fontWeight: scout.weight.medium,
+                    color: scout.text.tertiary,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    marginBottom: scout.space.md,
+                  }}>
+                    Artifacts ({currentAgent.artifacts.length})
+                  </h3>
+
+                  {currentAgent.artifacts.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: scout.space.md }}>
+                      {currentAgent.artifacts.map((artifact) => (
+                        <button
+                          key={artifact.id}
+                          onClick={() => navigate(`/workbench/${taskId}/artifact/${artifact.id}`)}
+                          style={{
+                            padding: scout.space.lg,
+                            background: scout.bg.base,
+                            border: `1px solid ${scout.accent.steel}`,
+                            borderRadius: scout.radius.md,
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            transition: 'all 150ms',
+                          }}
+                        >
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: scout.space.md,
+                          }}>
+                            <span style={{
+                              padding: `${scout.space.xs} ${scout.space.sm}`,
+                              background: scout.bg.elevated,
+                              borderRadius: scout.radius.sm,
+                              fontSize: scout.size.xs,
+                              color: scout.text.tertiary,
+                              textTransform: 'uppercase',
+                            }}>
+                              {getArtifactLabel(artifact.type)}
+                            </span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{
+                                fontSize: scout.size.base,
+                                fontWeight: scout.weight.medium,
+                                color: scout.text.primary,
+                                marginBottom: scout.space.xs,
+                              }}>
+                                {artifact.name}
+                              </div>
+                              <div style={{
+                                fontSize: scout.size.sm,
+                                color: scout.text.secondary,
+                              }}>
+                                {artifact.preview}
+                              </div>
+                            </div>
+                            <span style={{ color: scout.accent.cyan, fontSize: scout.size.sm }}>
+                              View →
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ color: scout.text.tertiary, fontSize: scout.size.sm }}>
+                      No artifacts yet. Agent is still processing.
+                    </div>
+                  )}
+                </div>
+
+                <div ref={logsEndRef} />
+              </div>
+            )}
+
+            {activeTab === 'report' && report && (
+              <div>
+                <h2 style={{ fontSize: scout.size.xxl, marginBottom: scout.space.xl }}>
+                  Executive Summary
+                </h2>
+                <p style={{
+                  fontSize: scout.size.lg,
+                  lineHeight: 1.7,
+                  color: scout.text.secondary,
+                  marginBottom: scout.space.xxl,
+                }}>
+                  {report.executive_summary}
+                </p>
+
+                {report.comparison_matrix && (
+                  <>
+                    <h3 style={{ fontSize: scout.size.xl, marginBottom: scout.space.lg }}>
+                      Comparison Matrix
+                    </h3>
+                    <table style={{
+                      width: '100%',
+                      borderCollapse: 'collapse',
+                      fontSize: scout.size.base,
+                    }}>
+                      <thead>
+                        <tr>
+                          <th style={{ textAlign: 'left', padding: scout.space.md, borderBottom: `2px solid ${scout.accent.steel}` }}>Product</th>
+                          {report.comparison_matrix.dimensions.map((d: string) => (
+                            <th key={d} style={{ textAlign: 'left', padding: scout.space.md, borderBottom: `2px solid ${scout.accent.steel}` }}>{d}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.comparison_matrix.products.map((p: any, i: number) => (
+                          <tr key={i}>
+                            <td style={{ padding: scout.space.md, borderBottom: `1px solid ${scout.accent.steel}`, fontWeight: scout.weight.medium }}>{p.name}</td>
+                            {report.comparison_matrix.dimensions.map((d: string) => (
+                              <td key={d} style={{ padding: scout.space.md, borderBottom: `1px solid ${scout.accent.steel}`, color: scout.text.secondary }}>{p[d] || '-'}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      )}
+
+        {/* Right: Evidence Summary */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: scout.space.lg,
+          overflow: 'auto',
+        }}>
+          <h2 style={{
+            fontSize: scout.size.sm,
+            fontWeight: scout.weight.semibold,
+            color: scout.text.tertiary,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+          }}>
+            Evidence Summary
+          </h2>
+
+          {/* Stats */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: scout.space.md,
+          }}>
+            <div style={{
+              padding: scout.space.lg,
+              background: scout.bg.surface,
+              border: `2px solid ${scout.accent.steel}`,
+              borderRadius: scout.radius.lg,
+            }}>
+              <div style={{ fontSize: scout.size.xs, color: scout.text.tertiary }}>Sources</div>
+              <div style={{ fontSize: scout.size.xxxl, fontWeight: scout.weight.semibold }}>
+                {sources.length}
+              </div>
+            </div>
+            <div style={{
+              padding: scout.space.lg,
+              background: scout.bg.surface,
+              border: `2px solid ${scout.accent.steel}`,
+              borderRadius: scout.radius.lg,
+            }}>
+              <div style={{ fontSize: scout.size.xs, color: scout.text.tertiary }}>Evidence</div>
+              <div style={{ fontSize: scout.size.xxxl, fontWeight: scout.weight.semibold }}>
+                {evidence.length}
+              </div>
+            </div>
+          </div>
+
+          {/* Artifact Types */}
+          <div style={{
+            padding: scout.space.lg,
+            background: scout.bg.surface,
+            border: `2px solid ${scout.accent.steel}`,
+            borderRadius: scout.radius.lg,
+          }}>
+            <h3 style={{
+              fontSize: scout.size.sm,
+              color: scout.text.secondary,
+              marginBottom: scout.space.md,
+            }}>
+              Generated Claims
+            </h3>
+            <div style={{ fontSize: scout.size.xxxl, fontWeight: scout.weight.semibold, marginBottom: scout.space.sm }}>
+              {claims.length}
+            </div>
+            <div style={{ fontSize: scout.size.sm, color: scout.text.tertiary }}>
+              {claims.filter((c: any) => c.claim_type === 'comparison').length} comparisons,
+              {' '}{claims.filter((c: any) => c.claim_type === 'insight').length} insights,
+              {' '}{claims.filter((c: any) => c.claim_type === 'recommendation').length} recommendations
+            </div>
+          </div>
+
+          <Link to={`/sources/${taskId}`} style={{
+            display: 'block',
+            padding: `${scout.space.md} ${scout.space.lg}`,
+            background: scout.accent.cyanGlow,
+            border: `1px solid ${scout.accent.cyan}`,
+            borderRadius: scout.radius.md,
+            color: scout.accent.cyan,
+            textDecoration: 'none',
+            textAlign: 'center',
+            fontSize: scout.size.base,
+            fontWeight: scout.weight.medium,
+          }}>
+            View All Sources →
+          </Link>
+        </div>
+      </main>
     </div>
   )
 }

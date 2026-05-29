@@ -1,10 +1,12 @@
 import json
 import uuid
-from pathlib import Path
 from typing import Any
 
-from app.core.config import settings
+from pydantic import BaseModel, Field
+
+from app.core.llm_adapter import llm_adapter
 from app.core.logging import (
+    log_artifact_saved,
     log_node_failed,
     log_node_started,
     log_node_succeeded,
@@ -12,138 +14,59 @@ from app.core.logging import (
     log_review_failed,
     log_review_fixed,
 )
+from app.core.prompt_loader import load_agent_prompt
 from app.core.state import ScoutState
 from app.models.review import ReviewIssue
+from app.storage.artifact_store import load_artifact, save_artifact
+from app.storage.markdown_artifacts import save_review_markdown
 
 
-def _check_source_coverage(evidence: list[dict], products: list[str]) -> list[ReviewIssue]:
-    """Check each product has at least 2 evidence items."""
-    issues = []
-    product_evidence: dict[str, list[dict]] = {}
-    for ev in evidence:
-        p = ev.get("product", "unknown")
-        if p not in product_evidence:
-            product_evidence[p] = []
-        product_evidence[p].append(ev)
+class ReviewIssueItem(BaseModel):
+    """LLM output: one review issue."""
 
-    for product in products:
-        count = len(product_evidence.get(product, []))
-        if count < 2:
-            issues.append(
-                ReviewIssue(
-                    issue_id=f"iss_{uuid.uuid4().hex[:8]}",
-                    severity="blocker" if count == 0 else "major",
-                    issue_type="MISSING_SOURCE",
-                    target_agent="researcher",
-                    target_object_id=f"product:{product}",
-                    message=f"产品 '{product}' 只有 {count} 条 evidence，要求至少 2 条",
-                    required_fix=f"补充 {product} 的来源和 evidence，确保每产品不少于 2 条",
-                )
-            )
-
-    # Check pricing dimension specifically
-    for product in products:
-        pricing_evidence = [e for e in product_evidence.get(product, []) if e.get("dimension") == "pricing"]
-        if not pricing_evidence:
-            # Check if the product has any source with pricing info
-            pricing_keywords = ["$", "定价", "价格", "元", "免费", "付费", "订阅", "月费", "年费"]
-            has_pricing_info = any(
-                any(kw in (e.get("fact", "")) for kw in pricing_keywords)
-                for e in product_evidence.get(product, [])
-            )
-            if not has_pricing_info:
-                issues.append(
-                    ReviewIssue(
-                        issue_id=f"iss_{uuid.uuid4().hex[:8]}",
-                        severity="blocker",
-                        issue_type="MISSING_SOURCE",
-                        target_agent="researcher",
-                        target_object_id=f"product:{product}:pricing",
-                        message=f"产品 '{product}' 缺少定价信息来源",
-                        required_fix=f"补充 {product} 的定价来源，或将对应 Claim 从最终报告中移除",
-                    )
-                )
-
-    return issues
+    severity: str = Field(
+        ...,
+        description="严重级别: blocker(阻断) / major(重要) / minor(轻微)",
+    )
+    issue_type: str = Field(
+        ...,
+        description="问题类型: MISSING_SOURCE(缺少来源) / LOW_CONFIDENCE(置信度低) / CONTRADICTION(矛盾) / REPORT_GAP(报告缺失) / SCHEMA_INVALID(格式错误) / PII_RISK(隐私风险)",
+    )
+    target_agent: str = Field(
+        ...,
+        description="应修复的 Agent: researcher / analyst / writer",
+    )
+    target_object_id: str = Field(
+        ...,
+        description="问题对象标识，如 product:ChatGPT 或 claim:clm_xxx 或 report:swot",
+    )
+    message: str = Field(..., description="问题描述，中文，清晰具体")
+    required_fix: str = Field(..., description="要求的修复措施，中文，可操作")
 
 
-def _check_claim_evidence(claims: list[dict]) -> list[ReviewIssue]:
-    """Check insight/recommendation claims have evidence."""
-    issues = []
-    for c in claims:
-        if c.get("claim_type") in ("insight", "recommendation"):
-            if len(c.get("evidence_ids", [])) == 0:
-                issues.append(
-                    ReviewIssue(
-                        issue_id=f"iss_{uuid.uuid4().hex[:8]}",
-                        severity="blocker",
-                        issue_type="MISSING_SOURCE",
-                        target_agent="analyst",
-                        target_object_id=c.get("claim_id", "unknown"),
-                        message=f"Claim '{c.get('text', '')[:50]}...' 无 evidence 支撑",
-                        required_fix="为 Claim 补充 evidence_ids 或降低 claim 类型",
-                    )
-                )
-    return issues
+class ReviewerOutput(BaseModel):
+    """LLM output schema for reviewer agent."""
 
-
-def _check_confidence(claims: list[dict]) -> list[ReviewIssue]:
-    """Check confidence threshold."""
-    issues = []
-    for c in claims:
-        conf = c.get("confidence", 0.0)
-        if conf < 0.6:
-            issues.append(
-                ReviewIssue(
-                    issue_id=f"iss_{uuid.uuid4().hex[:8]}",
-                    severity="major",
-                    issue_type="LOW_CONFIDENCE",
-                    target_agent="researcher",
-                    target_object_id=c.get("claim_id", "unknown"),
-                    message=f"Claim confidence {conf} < 0.6",
-                    required_fix="补充更多 evidence 或降低结论强度",
-                )
-            )
-    return issues
-
-
-def _check_report_completeness(report: dict | None) -> list[ReviewIssue]:
-    """Check report has all required sections."""
-    issues = []
-    if report is None:
-        issues.append(
-            ReviewIssue(
-                issue_id=f"iss_{uuid.uuid4().hex[:8]}",
-                severity="blocker",
-                issue_type="REPORT_GAP",
-                target_agent="writer",
-                target_object_id="report",
-                message="报告为空",
-                required_fix="生成完整报告",
-            )
-        )
-        return issues
-
-    required_keys = ["executive_summary", "comparison_matrix", "swot", "key_claims"]
-    for key in required_keys:
-        if key not in report or not report[key]:
-            issues.append(
-                ReviewIssue(
-                    issue_id=f"iss_{uuid.uuid4().hex[:8]}",
-                    severity="major",
-                    issue_type="REPORT_GAP",
-                    target_agent="writer",
-                    target_object_id=f"report:{key}",
-                    message=f"报告缺少 {key} 章节",
-                    required_fix=f"补齐报告的 {key} 章节",
-                )
-            )
-
-    return issues
+    review_passed: bool = Field(..., description="是否通过审查")
+    overall_assessment: str = Field(..., description="整体质量评估，200字以内")
+    issues: list[ReviewIssueItem] = Field(
+        default_factory=list, description="发现的问题列表"
+    )
+    retry_target: str | None = Field(
+        default=None,
+        description="如果未通过，应该重试哪个 agent: researcher / analyst / writer / None",
+    )
+    strengths: list[str] = Field(
+        default_factory=list, description="报告/分析的优点"
+    )
+    coverage_assessment: dict[str, Any] = Field(
+        default_factory=dict,
+        description="覆盖率评估: {products_covered, dimensions_covered, gaps}",
+    )
 
 
 def reviewer_node(state: ScoutState) -> dict[str, Any]:
-    """LangGraph node: Reviewer Agent checks quality and routes issues."""
+    """LangGraph node: Reviewer Agent checks quality via LLM-as-judge."""
     task_id = state.get("task_id", "unknown")
     run_id = state.get("run_id", "unknown")
     retry_count = state.get("retry_count", 0)
@@ -161,41 +84,120 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
         claims = state.get("claims", [])
         report = state.get("report")
         profiles = state.get("profiles", [])
+        sources = state.get("sources", [])
 
-        # Determine product list from profiles or manifest
-        products = [p.get("name", "") for p in profiles if p.get("name")]
-        if not products:
-            products = ["ChatGPT", "Claude", "Gemini", "Genspark", "Manus"]
+        # Get task context
+        from app.storage.sqlite_store import get_task
+        task = get_task(task_id)
+        task_config = {}
+        if task and isinstance(task.get("config"), str):
+            task_config = json.loads(task["config"])
+        elif task:
+            task_config = task.get("config", {})
 
-        # Load previous issues if any
+        # Expected products from task config
+        expected_products = task_config.get("competitors", []) + [task_config.get("main_product", "")]
+        expected_products = [p for p in expected_products if p]
+
+        inputs = {
+            "task_context": {
+                "industry": task_config.get("industry", "Unknown"),
+                "main_product": task_config.get("main_product", "Unknown"),
+                "competitors": task_config.get("competitors", []),
+                "expected_products": expected_products,
+            },
+            "pipeline_outputs": {
+                "source_count": len(sources),
+                "evidence_count": len(evidence),
+                "profile_count": len(profiles),
+                "claim_count": len(claims),
+                "report_generated": report is not None,
+            },
+            "sources": [
+                {"source_id": s.get("source_id"), "title": s.get("title"), "product": s.get("product")}
+                for s in sources[:20]  # limit context
+            ],
+            "evidence": [
+                {
+                    "evidence_id": e.get("evidence_id"),
+                    "product": e.get("product"),
+                    "dimension": e.get("dimension"),
+                    "fact": e.get("fact", "")[:100],
+                    "confidence": e.get("confidence"),
+                }
+                for e in evidence[:30]  # limit context
+            ],
+            "profiles": [
+                {
+                    "name": p.get("name"),
+                    "positioning": p.get("positioning", "")[:100],
+                    "strengths": p.get("strengths", [])[:3],
+                    "weaknesses": p.get("weaknesses", [])[:3],
+                }
+                for p in profiles
+            ],
+            "claims_summary": [
+                {
+                    "claim_id": c.get("claim_id"),
+                    "text": c.get("text", "")[:80],
+                    "claim_type": c.get("claim_type"),
+                    "confidence": c.get("confidence"),
+                    "evidence_count": len(c.get("evidence_ids", [])),
+                }
+                for c in claims[:20]
+            ],
+            "report_summary": {
+                "executive_summary": (report.get("executive_summary", "")[:200] if report else "N/A"),
+                "has_comparison_matrix": bool(report and report.get("comparison_matrix")),
+                "has_swot": bool(report and report.get("swot")),
+                "claim_count": report.get("claim_count", 0) if report else 0,
+                "evidence_coverage": report.get("evidence_coverage", 0) if report else 0,
+            },
+        }
+
+        result = llm_adapter.generate_structured(
+            prompt_name="quality_review",
+            inputs=inputs,
+            output_schema=ReviewerOutput,
+            system_prompt=load_agent_prompt("reviewer"),
+            metadata={"task_id": task_id, "run_id": run_id},
+            temperature=0.2,
+        )
+
+        # Load previous issues for history tracking
         previous_issues: list[dict[str, Any]] = []
-        artifact_dir = Path(settings.artifact_dir) / task_id
-        review_path = artifact_dir / "review.json"
-        if review_path.exists():
-            try:
-                with open(review_path, "r", encoding="utf-8") as f:
-                    prev = json.load(f)
-                    previous_issues = prev.get("issues", [])
-            except Exception:
-                pass
+        try:
+            prev = load_artifact(task_id, "review.json")
+            if isinstance(prev, dict):
+                previous_issues = prev.get("issues", [])
+        except Exception:
+            pass
 
+        # Map LLM output to ReviewIssue models
         new_issues: list[ReviewIssue] = []
-        new_issues.extend(_check_source_coverage(evidence, products))
-        new_issues.extend(_check_claim_evidence(claims))
-        new_issues.extend(_check_confidence(claims))
-        new_issues.extend(_check_report_completeness(report))
+        for item in result.issues:
+            new_issues.append(
+                ReviewIssue(
+                    issue_id=f"iss_{uuid.uuid4().hex[:8]}",
+                    severity=item.severity,  # type: ignore[arg-type]
+                    issue_type=item.issue_type,  # type: ignore[arg-type]
+                    target_agent=item.target_agent,  # type: ignore[arg-type]
+                    target_object_id=item.target_object_id,
+                    message=item.message,
+                    required_fix=item.required_fix,
+                    status="open",
+                )
+            )
 
-        # Merge with previous issues
+        # Merge with previous issues: mark fixed issues
         all_issues: list[ReviewIssue] = []
         seen_keys: set[str] = set()
 
-        # Add new issues first
         for issue in new_issues:
             key = f"{issue.issue_type}:{issue.target_object_id}"
             seen_keys.add(key)
             all_issues.append(issue)
 
-        # Add previous issues that are not in new issues (mark as fixed if they were open)
         for prev in previous_issues:
             key = f"{prev.get('issue_type')}:{prev.get('target_object_id')}"
             if key not in seen_keys:
@@ -204,27 +206,30 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
                     log_review_fixed(task_id, run_id, prev.get("issue_id", ""))
                 all_issues.append(ReviewIssue.model_validate(prev))
 
-        # Determine retry target from highest severity issue
-        retry_target = None
-        has_blocker = False
+        # Determine retry target
+        retry_target = result.retry_target
+        has_blocker = any(i.severity == "blocker" and i.status == "open" for i in all_issues)
 
-        for issue in all_issues:
-            if issue.status == "open":
-                if issue.severity == "blocker":
-                    has_blocker = True
-                    if retry_target is None:
-                        retry_target = issue.target_agent
-                elif issue.severity == "major" and retry_target is None:
+        # If LLM says passed but we have open blockers, trust the blockers
+        if has_blocker and not retry_target:
+            # Pick the first blocker's target agent
+            for issue in all_issues:
+                if issue.severity == "blocker" and issue.status == "open":
                     retry_target = issue.target_agent
+                    break
 
-        review_passed = len([i for i in all_issues if i.status == "open"]) == 0
+        review_passed = result.review_passed and len([i for i in all_issues if i.status == "open"]) == 0
 
         # Log review results
         if review_passed:
             log_review_approved(
                 task_id=task_id,
                 run_id=run_id,
-                payload={"issue_count": len(all_issues), "all_fixed": True},
+                payload={
+                    "issue_count": len(all_issues),
+                    "all_fixed": True,
+                    "strengths": result.strengths,
+                },
             )
         else:
             for issue in all_issues:
@@ -242,28 +247,28 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
                         },
                     )
 
-        # Save review artifact with history
-        artifact_dir.mkdir(parents=True, exist_ok=True)
-        review_ref = f"runtime/artifacts/{task_id}/review.json"
-        with open(review_path, "w", encoding="utf-8") as f:
-            json.dump(
+        # Save review artifact with history.
+        review_payload = {
+            "review_passed": review_passed,
+            "retry_target": retry_target,
+            "retry_count": retry_count,
+            "overall_assessment": result.overall_assessment,
+            "strengths": result.strengths,
+            "coverage_assessment": result.coverage_assessment,
+            "issues": [i.model_dump(mode="json") for i in all_issues],
+            "issue_history": [
                 {
-                    "review_passed": review_passed,
-                    "retry_target": retry_target,
-                    "retry_count": retry_count,
-                    "issues": [i.model_dump(mode="json") for i in all_issues],
-                    "issue_history": [
-                        {
-                            "run_id": run_id,
-                            "open_count": len([i for i in all_issues if i.status == "open"]),
-                            "fixed_count": len([i for i in all_issues if i.status == "fixed"]),
-                        }
-                    ],
-                },
-                f,
-                ensure_ascii=False,
-                indent=2,
-            )
+                    "run_id": run_id,
+                    "open_count": len([i for i in all_issues if i.status == "open"]),
+                    "fixed_count": len([i for i in all_issues if i.status == "fixed"]),
+                }
+            ],
+        }
+        review_ref = save_artifact(task_id, "review.json", review_payload)
+        review_md_ref = save_review_markdown(task_id, run_id, review_payload)
+
+        log_artifact_saved(task_id, run_id, "review", review_ref, payload={"format": "json"})
+        log_artifact_saved(task_id, run_id, "review_markdown", review_md_ref, payload={"format": "markdown"})
 
         log_node_succeeded(
             task_id=task_id,
@@ -276,7 +281,9 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
                 "open_issues": len([i for i in all_issues if i.status == "open"]),
                 "fixed_issues": len([i for i in all_issues if i.status == "fixed"]),
                 "retry_target": retry_target,
+                "overall_assessment": result.overall_assessment,
             },
+            artifact_refs=[review_ref, review_md_ref],
         )
 
         return {

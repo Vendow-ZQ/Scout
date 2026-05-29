@@ -1,0 +1,103 @@
+/* Scout Global Styles */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #050608;
+  color: #F0EEEB;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+/* 关键动画 */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0A0C10;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2A2E38;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3A3E48;
+}
+
+/* 选中文本 */
+::selection {
+  background: rgba(0, 212, 170, 0.25);
+  color: #F0EEEB;
+}
+
+/* Placeholder */
+::placeholder {
+  color: #6A6560;
+}
+
+/* 焦点样式 */
+:focus-visible {
+  outline: 2px solid rgba(0, 212, 170, 0.5);
+  outline-offset: 2px;
+}
+
+/* React Flow 覆盖 */
+.react-flow__node {
+  font-family: 'SF Pro Display', -apple-system, sans-serif !important;
+}
+
+.react-flow__controls {
+  background: #11141A !important;
+  border: 2px solid #2A2E38 !important;
+}
+
+.react-flow__controls-button {
+  background: #11141A !important;
+  border-bottom: 1px solid #2A2E38 !important;
+  color: #9A9590 !important;
+}
+
+.react-flow__attribution {
+  display: none !important;
+}

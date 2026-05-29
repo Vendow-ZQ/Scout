@@ -1,195 +1,218 @@
-# Scout - AI 驱动的可审计竞品分析 Agent 协作系统
+# Scout
 
-**版本**: v1.0.0 (MVP)  
-**日期**: 2026-05-28  
-**面向赛事**: 字节 CIS AI 全栈项目挑战赛
+**AI 竞品分析工作台 / Competitive Analysis Workbench**  
+**Version**: v2.0 architecture refresh  
+**Date**: 2026-05-28  
+**Competition**: 字节 CIS AI 全栈项目挑战赛
 
-Scout 是一个面向企业产品团队的竞品分析 Agent 协作系统。用户输入行业方向、主品、竞品列表和分析目标后，系统通过多个专职 Agent 自动完成信息采集、知识结构化、竞品对比、SWOT、报告生成和质检复核，并在前端工作台展示完整 DAG、Agent Trace、证据来源和 Reviewer 打回过程。
+Scout 面向产品经理、创业团队、战略/投研团队，帮助用户围绕一个赛道、产品或机会完成全链路竞品调研。它的前台交付是一份可复制到飞书继续使用的中文 **竞品调研报告 / Competitive Analysis Report**；后台能力是一套可审计的多 Agent 研究系统。
 
-核心不是"生成一份竞品报告"，而是把企业竞品分析流程做成一个**可审计、可追溯、可复核、可扩展**的 Agent 工作台。
+一句话：
+
+> 结论先行，证据可追溯；报告可读，过程可审计。
 
 ---
 
-## 快速启动
+## 1. What Scout Produces
 
-### 1. 克隆仓库
+一次完整运行会生成：
 
-```bash
-git clone https://github.com/Vendow-ZQ/Scout.git
-cd Scout
+- `researcher/research_plan.md`
+- 多条 Research tracks，例如市场、用户、竞品、技术、商业模式、风险
+- `researcher/research_synthesis.md`
+- `analyst/analysis_plan.md`
+- 多篇 Analyst module analysis
+- `analyst/analysis_synthesis.md`
+- `editor/final_report.md`
+- `editor/editorial_notes.md`
+- `reviewer/review_scorecard.md`
+- `reviewer/revision_plan.md`
+- JSON indexes, run events, traces, and source/evidence records
+
+最终报告满足三层阅读深度：
+
+1. **1 分钟判断**：一页结论、Answer Map、风险和建议。
+2. **20 分钟深读**：市场、用户、竞品、能力、商业、风险分析。
+3. **1 小时审计**：追溯 evidence、source、module analysis、review scorecard。
+
+---
+
+## 2. Architecture at a Glance
+
+主流程固定串行：
+
+```text
+Researcher -> Analyst -> Editor -> Reviewer
 ```
 
-### 2. 启动后端
+节点内部可以树状展开：
+
+```text
+Researcher
+  plan -> tracks -> synthesis
+
+Analyst
+  plan -> modules -> synthesis
+
+Editor
+  editorial plan -> final report -> editorial notes
+
+Reviewer
+  scorecard -> revision plan
+```
+
+关键设计：
+
+- Researcher 先 planning，再 ReAct-style 搜索/读取/降级/提证据。
+- Analyst 不搜索竞品，而是基于研究产物写模块级分析文章。
+- Editor 是主编，不是简单 writer。它负责把模块文章组织成完整报告。
+- Reviewer 是虚拟审稿委员会，默认只给 scorecard 和 revision plan，不自动重跑整条链路。
+- Markdown 是主要产物；JSON 只做索引、API、状态和校验。
+
+---
+
+## 3. Quick Start
+
+### 3.1 Backend
 
 ```bash
 cd backend
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
+# Windows
+.venv\Scripts\activate
+# macOS/Linux
+# source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-后端服务运行在 http://localhost:8000  
-API 文档: http://localhost:8000/docs
+Backend:
 
-### 3. 启动前端
+- App: `http://127.0.0.1:8000`
+- API docs: `http://127.0.0.1:8000/docs`
+
+### 3.2 Frontend
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev -- --host 127.0.0.1 --port 5003
 ```
 
-前端工作台运行在 http://localhost:5173
+Frontend:
+
+- Workbench: `http://127.0.0.1:5003`
 
 ---
 
-## 核心能力
+## 4. Environment
 
-| 能力 | 状态 | 说明 |
-|---|---|---|
-| 任务创建与配置 | P0 | 支持行业、主品、竞品、分析目标、数据包选择 |
-| LangGraph Agent 编排 | P0 | Researcher -> Analyst -> Writer -> Reviewer |
-| Reviewer 质量门与条件路由打回 | P0 | 支持 MISSING_SOURCE / LOW_CONFIDENCE / REPORT_GAP 检测与打回 |
-| Mock 数据包 | P0 | ai_agent（通用 AI Agent）+ ai_earbuds（AI 耳机） |
-| Broken Case 演示 | P0 | 首次运行触发 Reviewer 失败，Checkpoint 恢复后通过 |
-| Run Event 结构化日志 | P0 | JSONL 格式，15+ 事件类型 |
-| Run Summary 生成 | P0 | 含 git branch/commit、reviewer issues、报告统计 |
-| 本地 Trace Mirror | P0 | LangSmith 不可用时本地兜底 |
-| 前端工作台 | P0 | DAG 可视化 / Trace / Report / Review / Sources |
-| 证据溯源 | P0 | Claim -> Evidence -> Source 三级追溯 |
-| 数据包可扩展 | P0 | 通过 Schema Pack + Data Pack 切换行业 |
-
----
-
-## 技术栈
-
-| 层级 | 技术 | 说明 |
-|---|---|---|
-| 前端 | Vite + React + TypeScript | 本地工作台 |
-| 前端 UI | 内联样式（零依赖） | 优先交互密度和交付速度 |
-| DAG 可视化 | @xyflow/react (React Flow) | Agent 节点状态、边、打回路径 |
-| 后端 API | Python + FastAPI | 任务、报告、来源、Trace、Review API |
-| Agent 框架 | LangChain + LangGraph | 状态图编排、条件路由、Checkpoint |
-| 结构化校验 | Pydantic | Task / Source / Evidence / Claim / Review / Trace |
-| 观测 | LangSmith（可选）+ 本地 Trace Mirror | 断网可降级 |
-| 存储 | SQLite + JSON Artifact | 任务状态、产物、Trace |
-| 模型接入 | Mock LLM（默认）+ Doubao 适配 | 无网络稳定演示 |
-
----
-
-## 演示流程（5 分钟）
-
-1. 打开 http://localhost:5173
-2. 选择"通用 AI Agent"数据包，点击"启动分析"
-3. 系统自动运行 Researcher -> Analyst -> Writer -> Reviewer
-4. Reviewer 检测到 broken case（Galaxy Buds 3 Pro / Manus 来源不足），打回 Researcher
-5. 系统从 Checkpoint 恢复，补充来源后重跑
-6. Reviewer 通过，展示最终报告（8 条 Claim，100% 证据覆盖率）
-7. 在工作台查看 React Flow DAG、运行日志、质检结果和证据卡
-8. 点击 Claim 证据 ID 跳转到来源证据页
-9. 切换到 AI 耳机数据包，说明系统扩展方式
-
-完整演示脚本见 [docs/demo_script.md](docs/demo_script.md)。
-
----
-
-## 项目结构
-
-```
-scout/
-├── backend/
-│   ├── app/
-│   │   ├── api/              FastAPI 路由（tasks, artifacts, observability）
-│   │   ├── agents/           4 个 Agent 节点（researcher, analyst, writer, reviewer）
-│   │   ├── core/             LangGraph 编排、配置、日志、状态
-│   │   ├── models/           Pydantic Schema（Task, Source, Evidence, Claim, Review, Trace）
-│   │   ├── storage/          SQLite 存储、Artifact 管理
-│   │   └── main.py           FastAPI 应用入口
-│   ├── tests/
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── api/              API 客户端
-│   │   ├── pages/            页面（TaskCreate, TaskList, RunWorkbench, SourcesPage）
-│   │   ├── App.tsx           路由配置
-│   │   └── main.tsx
-│   └── package.json
-├── data/
-│   └── packs/                Mock 数据包
-│       ├── ai_agent/         通用 AI Agent 竞品（5 产品，10+ 来源）
-│       └── ai_earbuds/       AI 耳机竞品（5 产品，11 来源）
-├── runtime/                  运行时产物（自动创建）
-│   ├── artifacts/            Source / Evidence / Claim / Report JSON
-│   ├── logs/                 Run Event JSONL
-│   └── runs/                 Run Summary Markdown
-├── docs/                     项目文档
-│   ├── architecture.md       系统架构
-│   ├── agent_protocol.md     Agent 职责与打回协议
-│   ├── run_logging.md        运行日志与事件机制
-│   ├── demo_script.md        5 分钟演示脚本
-│   ├── compliance.md         合规与安全
-│   ├── development_workflow.md 开发流程与分支策略
-│   ├── ai_coding_log.md      AI 编码协作记录
-│   └── scoring_alignment.md  比赛评分对齐
-├── SOP_0528.md               AI 编码执行标准
-├── PRD_0528.md               产品需求文档
-└── README.md
-```
-
----
-
-## API 速查
-
-| 端点 | 方法 | 说明 |
-|---|---|---|
-| `/api/tasks` | POST | 创建任务 |
-| `/api/tasks` | GET | 任务列表 |
-| `/api/tasks/{task_id}` | GET | 任务详情 |
-| `/api/tasks/{task_id}/run` | POST | 运行分析 |
-| `/api/tasks/{task_id}/events` | GET | 运行事件日志 |
-| `/api/tasks/{task_id}/report` | GET | 分析报告 |
-| `/api/tasks/{task_id}/review` | GET | 质检结果 |
-| `/api/tasks/{task_id}/sources` | GET | 来源列表 |
-| `/api/tasks/{task_id}/evidence` | GET | 证据卡列表 |
-| `/api/tasks/{task_id}/summary` | GET | Run Summary |
-
----
-
-## 环境变量
-
-复制 `.env.example` 为 `.env`（`.env` 不入库）：
+Copy `env.example` to `.env`. Do not commit `.env`.
 
 ```bash
-LLM_PROVIDER=mock          # mock / doubao
-DOUBAO_API_KEY=            # 如需真实模型
-DOUBAO_MODEL=              # 模型名称
-LANGSMITH_TRACING=false    # true / false
-LANGSMITH_API_KEY=         # 如需 LangSmith
+LLM_PROVIDER=doubao
+DOUBAO_API_KEY=
+DOUBAO_MODEL=
+LANGSMITH_TRACING=false
+LANGSMITH_API_KEY=
 ```
 
-Mock 模式无需任何外部依赖即可完整演示。
+Mock data only replaces the external crawler/source collection layer. Agent reasoning should call the configured real LLM. If the model is unavailable, the run should fail clearly and write logs; it should not silently switch to fake reasoning.
 
 ---
 
-## 文档索引
+## 5. Project Structure
 
-| 文档 | 内容 |
+```text
+Scout/
+  PRODUCT_DEFINITION.md       Product philosophy and agent boundaries
+  PRD_0528.md                 Product requirements and acceptance criteria
+  SOP_0528.md                 AI coding and runtime execution standard
+  README.md                   This file
+  env.example                 Environment template
+
+  backend/
+    app/
+      api/                    FastAPI routes
+      agents/                 Researcher, Analyst, Editor/legacy writer, Reviewer runtime code
+      core/                   LangGraph, config, state, logging, LLM adapter
+      models/                 Pydantic models
+      prompts/agents/         System prompts in Markdown
+      storage/                SQLite and artifact storage
+
+  frontend/
+    src/
+      api/                    API client
+      components/             Graph and shared components
+      pages/                  Task creation, workbench, artifacts, sources
+      styles/                 Visual system
+
+  data/
+    packs/
+      ai_coding_agent/        Main demo pack: Trae and AI coding agents
+      ai_agent/               Legacy demo mock data pack
+      ai_earbuds/             Secondary demo data pack
+
+  docs/
+    architecture.md           Runtime architecture
+    demo_script.md            Competition demo script
+
+  runtime/                    Local generated outputs, ignored unless explicitly needed
+    artifacts/
+    logs/
+    runs/
+```
+
+Note: some current code paths may still use the filename `writer.py`; product language and next architecture target use **Editor**. Rename code only as part of an explicit implementation slice.
+
+---
+
+## 6. API Quick Reference
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/tasks` | POST | Create task |
+| `/api/tasks` | GET | List tasks |
+| `/api/tasks/{task_id}` | GET | Task detail |
+| `/api/tasks/{task_id}/run` | POST | Start or rerun task |
+| `/api/tasks/{task_id}/regenerate-report` | POST | Regenerate final report from existing analysis |
+| `/api/tasks/{task_id}/artifacts` | GET | Artifact tree/index |
+| `/api/tasks/{task_id}/artifacts/{artifact_id}` | GET | Artifact detail |
+| `/api/tasks/{task_id}/report` | GET | Final report |
+| `/api/tasks/{task_id}/review` | GET | Review scorecard/revision plan |
+| `/api/tasks/{task_id}/events` | GET | Run event stream |
+| `/api/tasks/{task_id}/summary` | GET | Run summary |
+| `/api/tasks/{task_id}/traces` | GET | LangSmith/local trace refs |
+
+---
+
+## 7. Demo Flow
+
+1. Open `http://127.0.0.1:5003`.
+2. Create a new research task.
+3. Enter: `Trae 是字节旗下 AI IDE，请分析 AI coding agent 赛道`.
+4. The app uses the `ai_coding_agent` mock crawler pack: Trae, Cursor, Windsurf, GitHub Copilot, Claude Code, OpenAI Codex, Devin.
+5. Run the main flow: `Researcher -> Analyst -> Editor -> Reviewer`.
+6. Open the final report first.
+7. Expand Research Tree to inspect every Markdown artifact.
+8. Open Evidence/Source records to verify claims.
+9. Open Reviewer Scorecard and Revision Plan.
+10. If the issue is report-level, trigger Editor regeneration from existing analysis.
+
+---
+
+## 8. Documentation Index
+
+| Document | Purpose |
 |---|---|
-| [PRD_0528.md](PRD_0528.md) | 产品需求文档（P0/P1/P2 范围、功能需求、验收标准） |
-| [SOP_0528.md](SOP_0528.md) | AI 编码执行标准（分支策略、Review 规则、日志要求） |
-| [docs/architecture.md](docs/architecture.md) | 系统架构、LangGraph DAG、存储设计、降级策略 |
-| [docs/agent_protocol.md](docs/agent_protocol.md) | Agent 职责、输入输出 Schema、打回协议 |
-| [docs/run_logging.md](docs/run_logging.md) | Run Event 机制、Trace Mirror、Run Summary、脱敏规则 |
-| [docs/demo_script.md](docs/demo_script.md) | 5 分钟现场演示脚本（含得分点对应） |
-| [docs/compliance.md](docs/compliance.md) | 数据来源、脱敏、密钥安全、Trace 安全 |
-| [docs/development_workflow.md](docs/development_workflow.md) | 分支策略、Review 标准、子 Agent 并行规则 |
-| [docs/ai_coding_log.md](docs/ai_coding_log.md) | AI 编程协作记录、关键决策、取舍说明 |
-| [docs/scoring_alignment.md](docs/scoring_alignment.md) | 逐条对齐比赛评分标准 |
+| `PRODUCT_DEFINITION.md` | Product definition, philosophy, report model, agent boundaries |
+| `PRD_0528.md` | Requirements, P0 scope, acceptance criteria |
+| `SOP_0528.md` | Coding, logging, Git, failure, sub-agent, smoke test rules |
+| `docs/architecture.md` | LangGraph, artifact tree, state, storage, recovery model |
+| `docs/demo_script.md` | 5-minute competition demo script |
 
 ---
 
-## 许可证
+## 9. License
 
-内部项目，用于字节 CIS AI 全栈项目挑战赛。
+Internal project for the ByteDance CIS AI full-stack project challenge.

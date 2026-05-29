@@ -4,7 +4,7 @@
   "description": "ChatGPT、Claude、Gemini、Genspark、Manus 等 AI Agent 产品的竞品分析数据包",
   "version": "1.0.0",
   "products": ["ChatGPT", "Claude", "Gemini", "Genspark", "Manus"],
-  "main_product": "Scout",
+  "main_product": "ChatGPT",
   "industry": "通用 AI Agent",
   "region": "全球 + 中国",
   "source_count": 12,

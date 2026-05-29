@@ -8,9 +8,11 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 
 class Settings(BaseSettings):
     # LLM
-    llm_provider: str = "mock"
+    llm_provider: str = "doubao"
     doubao_api_key: str | None = None
     doubao_model: str | None = None
+    doubao_ep: str | None = None
+    doubao_base_url: str = "https://ark.cn-beijing.volces.com/api/v3"
 
     # LangSmith
     langsmith_tracing: bool = False
@@ -27,8 +29,13 @@ class Settings(BaseSettings):
     data_pack_dir: str = str(PROJECT_ROOT / "data" / "packs")
 
     class Config:
-        env_file = ".env"
+        env_file = str(PROJECT_ROOT / ".env")
         env_file_encoding = "utf-8"
 
 
 settings = Settings()
+
+# Volcano Engine's OpenAI-compatible API expects the endpoint ID as model.
+# Prefer DOUBAO_EP when present; DOUBAO_MODEL remains a fallback alias.
+if settings.doubao_ep:
+    settings.doubao_model = settings.doubao_ep

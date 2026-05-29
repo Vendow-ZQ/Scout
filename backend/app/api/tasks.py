@@ -32,7 +32,7 @@ class CreateTaskRequest(BaseModel):
     main_product: str
     competitors: list[str]
     analysis_goal: str
-    data_mode: str = "mock"
+    data_mode: str = "web"
     schema_pack: str = "ai_agent"
 
 
@@ -66,7 +66,19 @@ def api_create_task(req: CreateTaskRequest) -> TaskResponse:
 
 @router.get("")
 def api_list_tasks() -> list[dict[str, Any]]:
-    return list_tasks()
+    tasks = list_tasks()
+    # Parse config to extract display name
+    for task in tasks:
+        config_str = task.get("config", "{}")
+        if isinstance(config_str, str):
+            import json
+            try:
+                config = json.loads(config_str)
+                # Use query field if available, otherwise use analysis_goal
+                task["query"] = config.get("query") or config.get("analysis_goal", "Untitled")[:50]
+            except json.JSONDecodeError:
+                task["query"] = "Untitled"
+    return tasks
 
 
 @router.get("/{task_id}")
@@ -110,7 +122,7 @@ async def api_run_task(task_id: str) -> dict[str, Any]:
             "task_id": task_id,
             "run_id": run_id,
             "schema_pack": config.get("schema_pack", "ai_agent"),
-            "data_mode": config.get("data_mode", "mock"),
+            "data_mode": config.get("data_mode", "web"),
             "sources": [],
             "evidence": [],
             "profiles": [],
@@ -232,6 +244,11 @@ def _generate_run_summary(
     report = result.get("report", {})
     issues = result.get("review_issues", [])
     node_history = result.get("node_history", [])
+    langsmith_trace = (
+        f"enabled:{settings.langsmith_project}"
+        if settings.langsmith_tracing and settings.langsmith_api_key
+        else "local_trace_mirror"
+    )
 
     # Get git context
     try:
@@ -261,8 +278,8 @@ def _generate_run_summary(
 - **git_commit**: {git_commit}
 - **data_pack**: {config.get("schema_pack", "ai_agent")}
 - **schema_pack**: {config.get("schema_pack", "ai_agent")}
-- **langsmith_trace**: N/A (mock mode)
-- **fallback_used**: mock_llm, mock_data_pack
+- **langsmith_trace**: {langsmith_trace}
+- **llm_provider**: {settings.llm_provider}
 - **reviewer_issues**: {len(issues)}
 - **final_report**: {report.get("claim_count", 0)} claims, {(report.get("evidence_coverage", 0) * 100):.0f}% evidence coverage
 - **demo_notes**: End-to-end completed with Reviewer loop. Node history: {' -> '.join(node_history)}
@@ -288,11 +305,17 @@ def _generate_run_summary(
 ## Artifacts
 
 - `runtime/artifacts/{task_id}/sources.json`
+- `runtime/artifacts/{task_id}/sources.md`
 - `runtime/artifacts/{task_id}/evidence.json`
+- `runtime/artifacts/{task_id}/evidence.md`
 - `runtime/artifacts/{task_id}/profiles.json`
+- `runtime/artifacts/{task_id}/profiles.md`
 - `runtime/artifacts/{task_id}/claims.json`
+- `runtime/artifacts/{task_id}/claims.md`
 - `runtime/artifacts/{task_id}/report.json`
+- `runtime/artifacts/{task_id}/report.md`
 - `runtime/artifacts/{task_id}/review.json`
+- `runtime/artifacts/{task_id}/review.md`
 - `runtime/logs/{task_id}.jsonl`
 
 Generated at: {datetime.utcnow().isoformat()} UTC

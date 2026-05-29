@@ -10,6 +10,12 @@ __pycache__/
 runtime/logs/*.jsonl
 runtime/artifacts/*/
 runtime/runs/*/
+runtime/*.log
+runtime/*.db
+runtime/*.sqlite
+runtime/*.sqlite3
+runtime/*.json
+runtime/*.txt
 *.db
 *.sqlite
 *.sqlite3

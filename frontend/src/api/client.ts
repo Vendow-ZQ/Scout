@@ -51,3 +51,9 @@ export async function getSources(taskId: string) {
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
+
+export async function getClaims(taskId: string) {
+  const res = await fetch(`${API_BASE}/tasks/${taskId}/claims`)
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
