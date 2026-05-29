@@ -18,7 +18,7 @@ from app.core.prompt_loader import load_agent_prompt
 from app.core.state import ScoutState
 from app.models.review import ReviewIssue
 from app.storage.artifact_store import load_artifact, save_artifact
-from app.storage.markdown_artifacts import save_review_markdown
+from app.storage.markdown_artifacts import save_revision_plan_markdown, save_review_scorecard_markdown
 
 
 class ReviewIssueItem(BaseModel):
@@ -34,7 +34,7 @@ class ReviewIssueItem(BaseModel):
     )
     target_agent: str = Field(
         ...,
-        description="应修复的 Agent: researcher / analyst / writer",
+        description="应修复的 Agent: researcher / analyst / editor",
     )
     target_object_id: str = Field(
         ...,
@@ -54,7 +54,7 @@ class ReviewerOutput(BaseModel):
     )
     retry_target: str | None = Field(
         default=None,
-        description="如果未通过，应该重试哪个 agent: researcher / analyst / writer / None",
+        description="如果未通过，问题归属哪个 agent: researcher / analyst / editor / None。注意这里只做归因，不自动重跑。",
     )
     strengths: list[str] = Field(
         default_factory=list, description="报告/分析的优点"
@@ -62,6 +62,14 @@ class ReviewerOutput(BaseModel):
     coverage_assessment: dict[str, Any] = Field(
         default_factory=dict,
         description="覆盖率评估: {products_covered, dimensions_covered, gaps}",
+    )
+    verdict: str = Field(
+        default="revise",
+        description="pass / accept_with_limitation / revise",
+    )
+    revision_plan: str = Field(
+        default="",
+        description="Markdown body. 精确说明要修改哪些 artifact、为什么、由哪个角色负责；不要求自动全链路重跑。",
     )
 
 
@@ -85,6 +93,13 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
         report = state.get("report")
         profiles = state.get("profiles", [])
         sources = state.get("sources", [])
+        analysis_modules = {
+            "market_analysis": bool(state.get("market_analysis")),
+            "user_analysis": bool(state.get("user_analysis")),
+            "competitor_analysis": bool(state.get("competitor_analysis")),
+            "analysis_synthesis": bool(state.get("analysis_synthesis")),
+            "editorial_notes": bool(state.get("editorial_notes")),
+        }
 
         # Get task context
         from app.storage.sqlite_store import get_task
@@ -112,10 +127,11 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
                 "profile_count": len(profiles),
                 "claim_count": len(claims),
                 "report_generated": report is not None,
+                "analysis_modules": analysis_modules,
             },
             "sources": [
                 {"source_id": s.get("source_id"), "title": s.get("title"), "product": s.get("product")}
-                for s in sources[:20]  # limit context
+                for s in sources
             ],
             "evidence": [
                 {
@@ -147,7 +163,7 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
                 for c in claims[:20]
             ],
             "report_summary": {
-                "executive_summary": (report.get("executive_summary", "")[:200] if report else "N/A"),
+                "executive_summary": (report.get("executive_summary", "")[:1000] if report else "N/A"),
                 "has_comparison_matrix": bool(report and report.get("comparison_matrix")),
                 "has_swot": bool(report and report.get("swot")),
                 "claim_count": report.get("claim_count", 0) if report else 0,
@@ -176,12 +192,13 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
         # Map LLM output to ReviewIssue models
         new_issues: list[ReviewIssue] = []
         for item in result.issues:
+            target_agent = "editor" if item.target_agent == "writer" else item.target_agent
             new_issues.append(
                 ReviewIssue(
                     issue_id=f"iss_{uuid.uuid4().hex[:8]}",
                     severity=item.severity,  # type: ignore[arg-type]
                     issue_type=item.issue_type,  # type: ignore[arg-type]
-                    target_agent=item.target_agent,  # type: ignore[arg-type]
+                    target_agent=target_agent,  # type: ignore[arg-type]
                     target_object_id=item.target_object_id,
                     message=item.message,
                     required_fix=item.required_fix,
@@ -206,8 +223,8 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
                     log_review_fixed(task_id, run_id, prev.get("issue_id", ""))
                 all_issues.append(ReviewIssue.model_validate(prev))
 
-        # Determine retry target
-        retry_target = result.retry_target
+        # Determine issue owner. Reviewer does not automatically rerun the graph.
+        retry_target = "editor" if result.retry_target == "writer" else result.retry_target
         has_blocker = any(i.severity == "blocker" and i.status == "open" for i in all_issues)
 
         # If LLM says passed but we have open blockers, trust the blockers
@@ -252,9 +269,11 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
             "review_passed": review_passed,
             "retry_target": retry_target,
             "retry_count": retry_count,
+            "verdict": result.verdict,
             "overall_assessment": result.overall_assessment,
             "strengths": result.strengths,
             "coverage_assessment": result.coverage_assessment,
+            "revision_plan": result.revision_plan,
             "issues": [i.model_dump(mode="json") for i in all_issues],
             "issue_history": [
                 {
@@ -265,10 +284,12 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
             ],
         }
         review_ref = save_artifact(task_id, "review.json", review_payload)
-        review_md_ref = save_review_markdown(task_id, run_id, review_payload)
+        scorecard_ref = save_review_scorecard_markdown(task_id, run_id, review_payload)
+        revision_plan_ref = save_revision_plan_markdown(task_id, run_id, review_payload)
 
         log_artifact_saved(task_id, run_id, "review", review_ref, payload={"format": "json"})
-        log_artifact_saved(task_id, run_id, "review_markdown", review_md_ref, payload={"format": "markdown"})
+        log_artifact_saved(task_id, run_id, "review_scorecard", scorecard_ref, payload={"format": "markdown"})
+        log_artifact_saved(task_id, run_id, "revision_plan", revision_plan_ref, payload={"format": "markdown"})
 
         log_node_succeeded(
             task_id=task_id,
@@ -283,14 +304,14 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
                 "retry_target": retry_target,
                 "overall_assessment": result.overall_assessment,
             },
-            artifact_refs=[review_ref, review_md_ref],
+            artifact_refs=[review_ref, scorecard_ref, revision_plan_ref],
         )
 
         return {
             "review_issues": [i.model_dump(mode="json") for i in all_issues],
             "review_passed": review_passed,
             "retry_target": retry_target,
-            "retry_count": retry_count + (1 if retry_target else 0),
+            "retry_count": retry_count,
             "current_node": "reviewer",
             "node_history": state.get("node_history", []) + ["reviewer"],
         }

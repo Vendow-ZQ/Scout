@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
-import { getSources, getEvidence, getClaims } from '../api/client'
+import { getSources, getEvidence, getClaims, getArtifactFile } from '../api/client'
 import { scout } from '../styles/scout-theme'
 
 interface Artifact {
@@ -76,6 +76,28 @@ function formatClaimAsMarkdown(claim: any): string {
 // Find artifact in real data
 async function findArtifact(taskId: string, artifactId: string): Promise<Artifact | null> {
   try {
+    const filename = decodeURIComponent(artifactId)
+    if (filename.endsWith('.md') || filename.endsWith('.json')) {
+      const content = await getArtifactFile(taskId, filename)
+      const agent = filename.startsWith('research_') || ['sources.md', 'evidence.md'].includes(filename)
+        ? 'Researcher'
+        : filename.startsWith('analysis_') || filename.includes('_analysis') || ['profiles.md', 'claims.md'].includes(filename)
+          ? 'Analyst'
+          : filename.startsWith('final_') || filename.startsWith('editorial_')
+            ? 'Editor'
+            : filename.startsWith('review_') || filename.startsWith('revision_')
+              ? 'Reviewer'
+              : 'Artifact'
+      return {
+        id: filename,
+        type: filename.endsWith('.json') ? 'json' : 'markdown',
+        name: filename,
+        agent,
+        createdAt: new Date().toISOString(),
+        content,
+      }
+    }
+
     // Try sources
     const sources = await getSources(taskId)
     const source = sources.find((s: any) => s.source_id === artifactId)

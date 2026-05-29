@@ -25,7 +25,7 @@ def _build_doubao_llm(temperature: float = 0.2) -> ChatOpenAI:
         model=settings.doubao_model,
         temperature=temperature,
         max_retries=1,
-        timeout=90,
+        timeout=180,
         max_completion_tokens=8192,
     )
 

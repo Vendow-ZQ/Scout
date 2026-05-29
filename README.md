@@ -134,7 +134,7 @@ Scout/
   backend/
     app/
       api/                    FastAPI routes
-      agents/                 Researcher, Analyst, Editor/legacy writer, Reviewer runtime code
+      agents/                 Researcher, Analyst, Editor (legacy file name writer.py), Reviewer runtime code
       core/                   LangGraph, config, state, logging, LLM adapter
       models/                 Pydantic models
       prompts/agents/         System prompts in Markdown
@@ -163,7 +163,7 @@ Scout/
     runs/
 ```
 
-Note: some current code paths may still use the filename `writer.py`; product language and next architecture target use **Editor**. Rename code only as part of an explicit implementation slice.
+Note: the runtime node and prompt now use **Editor**. The Python file may still be named `writer.py` as a legacy implementation detail.
 
 ---
 

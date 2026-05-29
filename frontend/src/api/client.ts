@@ -57,3 +57,21 @@ export async function getClaims(taskId: string) {
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
+
+export async function getArtifacts(taskId: string) {
+  const res = await fetch(`${API_BASE}/tasks/${taskId}/artifacts`)
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+export async function getArtifactFile(taskId: string, filename: string) {
+  const res = await fetch(`${API_BASE}/tasks/${taskId}/artifacts/${encodeURIComponent(filename)}`)
+  if (!res.ok) throw new Error(await res.text())
+  return res.text()
+}
+
+export async function regenerateReport(taskId: string) {
+  const res = await fetch(`${API_BASE}/tasks/${taskId}/regenerate-report`, { method: 'POST' })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}

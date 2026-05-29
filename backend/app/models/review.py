@@ -13,7 +13,7 @@ class ReviewIssue(BaseModel):
         "PII_RISK",
         "REPORT_GAP",
     ] = Field(..., description="问题类型")
-    target_agent: Literal["researcher", "analyst", "writer"] = Field(..., description="目标Agent")
+    target_agent: Literal["researcher", "analyst", "editor"] = Field(..., description="目标Agent")
     target_object_id: str = Field(..., description="目标对象ID")
     message: str = Field(..., description="问题描述")
     required_fix: str = Field(..., description="要求的修复")

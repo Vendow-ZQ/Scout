@@ -2,7 +2,7 @@ import json
 import uuid
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.llm_adapter import llm_adapter
 from app.core.logging import (
@@ -15,7 +15,13 @@ from app.core.prompt_loader import load_agent_prompt
 from app.core.state import ScoutState
 from app.models.evidence import Claim, ProductProfile
 from app.storage.artifact_store import save_artifact
-from app.storage.markdown_artifacts import save_claims_markdown, save_profiles_markdown
+from app.storage.markdown_artifacts import (
+    save_analysis_module_markdown,
+    save_analysis_plan_markdown,
+    save_analysis_synthesis_markdown,
+    save_claims_markdown,
+    save_profiles_markdown,
+)
 
 
 class ProfileItem(BaseModel):
@@ -40,6 +46,27 @@ class ProfileItem(BaseModel):
         ..., description="这个产品的主要证据来源总结"
     )
 
+    @field_validator("target_persona", "strengths", "weaknesses", mode="before")
+    @classmethod
+    def _coerce_string_list(cls, value: Any) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            parts = [part.strip(" -;；,，") for part in value.replace("\n", "；").split("；")]
+            return [part for part in parts if part]
+        return [str(value)]
+
+    @field_validator("feature_tree", "pricing_model", mode="before")
+    @classmethod
+    def _coerce_dict(cls, value: Any) -> dict[str, Any]:
+        if isinstance(value, dict):
+            return value
+        if value is None:
+            return {}
+        return {"notes": str(value)}
+
 
 class ClaimItem(BaseModel):
     """LLM output: one claim."""
@@ -59,16 +86,34 @@ class ClaimItem(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0, description="置信度 0-1")
     reasoning: str = Field(..., description="为什么这个 claim 成立")
 
+    @field_validator("product_refs", "evidence_refs", mode="before")
+    @classmethod
+    def _coerce_string_list(cls, value: Any) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            return [part.strip(" -;；,，") for part in value.replace("\n", "；").split("；") if part.strip(" -;；,，")]
+        return [str(value)]
+
 
 class AnalystOutput(BaseModel):
     """LLM output schema for analyst agent."""
 
+    analysis_plan: str = Field(
+        ...,
+        description="Markdown body. 说明模块拆分、证据现实检查、分析边界和每个模块的写作目标。",
+    )
     profiles: list[ProfileItem] = Field(..., description="所有产品的画像列表")
     claims: list[ClaimItem] = Field(
         ..., description="从证据中提炼的核心主张列表，必须覆盖事实、对比、洞察、建议四类"
     )
+    market_analysis: str = Field(..., description="Markdown body. 市场规模/趋势/细分市场/进入窗口分析。")
+    user_analysis: str = Field(..., description="Markdown body. 用户画像、需求真实性、使用场景和购买/采用阻力分析。")
+    competitor_analysis: str = Field(..., description="Markdown body. 竞品分层、直接/间接竞争关系、能力矩阵和战略含义。")
     analysis_summary: str = Field(
-        ..., description="整体分析总结，概括本次分析的核心发现"
+        ..., description="Markdown body. 汇总模块结论、共识/矛盾、交给 Editor 的组稿建议。"
     )
 
 
@@ -105,6 +150,7 @@ def analyst_node(state: ScoutState) -> dict[str, Any]:
                 "analysis_goal": task_config.get("analysis_goal", ""),
             },
             "evidence": evidence,
+            "research_synthesis": state.get("research_synthesis", ""),
             "source_count": len(sources),
             "evidence_count": len(evidence),
         }
@@ -161,11 +207,36 @@ def analyst_node(state: ScoutState) -> dict[str, Any]:
         claims_ref = save_artifact(task_id, "claims.json", claims_payload)
         profiles_md_ref = save_profiles_markdown(task_id, run_id, profiles)
         claims_md_ref = save_claims_markdown(task_id, run_id, claims)
+        analysis_plan_ref = save_analysis_plan_markdown(task_id, run_id, result.analysis_plan)
+        market_ref = save_analysis_module_markdown(
+            task_id,
+            "market_analysis.md",
+            "Market Analysis",
+            result.market_analysis,
+        )
+        user_ref = save_analysis_module_markdown(
+            task_id,
+            "user_analysis.md",
+            "User Analysis",
+            result.user_analysis,
+        )
+        competitor_ref = save_analysis_module_markdown(
+            task_id,
+            "competitor_analysis.md",
+            "Competitor Analysis",
+            result.competitor_analysis,
+        )
+        analysis_synthesis_ref = save_analysis_synthesis_markdown(task_id, run_id, result.analysis_summary)
 
+        log_artifact_saved(task_id, run_id, "analysis_plan", analysis_plan_ref, payload={"format": "markdown"})
         log_artifact_saved(task_id, run_id, "profiles", profiles_ref, payload={"format": "json"})
         log_artifact_saved(task_id, run_id, "profiles_markdown", profiles_md_ref, payload={"format": "markdown"})
         log_artifact_saved(task_id, run_id, "claims", claims_ref, payload={"format": "json"})
         log_artifact_saved(task_id, run_id, "claims_markdown", claims_md_ref, payload={"format": "markdown"})
+        log_artifact_saved(task_id, run_id, "market_analysis", market_ref, payload={"format": "markdown"})
+        log_artifact_saved(task_id, run_id, "user_analysis", user_ref, payload={"format": "markdown"})
+        log_artifact_saved(task_id, run_id, "competitor_analysis", competitor_ref, payload={"format": "markdown"})
+        log_artifact_saved(task_id, run_id, "analysis_synthesis", analysis_synthesis_ref, payload={"format": "markdown"})
 
         log_node_succeeded(
             task_id=task_id,
@@ -177,12 +248,27 @@ def analyst_node(state: ScoutState) -> dict[str, Any]:
                 "claim_count": len(claims),
                 "analysis_summary": result.analysis_summary,
             },
-            artifact_refs=[profiles_ref, profiles_md_ref, claims_ref, claims_md_ref],
+            artifact_refs=[
+                analysis_plan_ref,
+                profiles_ref,
+                profiles_md_ref,
+                claims_ref,
+                claims_md_ref,
+                market_ref,
+                user_ref,
+                competitor_ref,
+                analysis_synthesis_ref,
+            ],
         )
 
         return {
             "profiles": profiles_payload,
             "claims": claims_payload,
+            "analysis_plan": result.analysis_plan,
+            "market_analysis": result.market_analysis,
+            "user_analysis": result.user_analysis,
+            "competitor_analysis": result.competitor_analysis,
+            "analysis_synthesis": result.analysis_summary,
             "current_node": "analyst",
             "node_history": state.get("node_history", []) + ["analyst"],
         }

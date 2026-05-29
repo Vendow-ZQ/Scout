@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
-import { getTask, getEvents, getReport, getSources, getEvidence, getClaims, runTask } from '../api/client'
+import { getTask, getEvents, getReport, getSources, getEvidence, getClaims, getArtifacts, runTask } from '../api/client'
 import { scout } from '../styles/scout-theme'
 
 interface LogEvent {
@@ -33,25 +33,58 @@ function buildArtifactsFromData(
   sources: any[],
   evidence: any[],
   claims: any[],
-  events: LogEvent[]
+  events: LogEvent[],
+  artifactFiles: string[]
 ): Record<string, AgentState> {
   const states: Record<string, AgentState> = {
     researcher: { name: 'Researcher', status: 'pending', logs: [], artifacts: [] },
     analyst: { name: 'Analyst', status: 'pending', logs: [], artifacts: [] },
-    writer: { name: 'Writer', status: 'pending', logs: [], artifacts: [] },
+    editor: { name: 'Editor', status: 'pending', logs: [], artifacts: [] },
     reviewer: { name: 'Reviewer', status: 'pending', logs: [], artifacts: [] },
   }
+
+  const artifactCatalog: Record<string, Array<{ file: string; type: string; name: string; preview: string }>> = {
+    researcher: [
+      { file: 'research_plan.md', type: 'plan', name: 'Research Plan', preview: 'Problem framing, tracks, search playbook and fallback policy' },
+      { file: 'sources.md', type: 'source', name: 'Source Index', preview: 'All loaded crawler/mock sources with raw excerpts' },
+      { file: 'evidence.md', type: 'evidence', name: 'Evidence Cards', preview: 'Claim-ready facts extracted from sources' },
+      { file: 'research_synthesis.md', type: 'synthesis', name: 'Research Synthesis', preview: 'Known facts, gaps, and handoff questions for Analyst' },
+    ],
+    analyst: [
+      { file: 'analysis_plan.md', type: 'plan', name: 'Analysis Plan', preview: 'Evidence reality check and module assignment' },
+      { file: 'market_analysis.md', type: 'analysis', name: 'Market Analysis', preview: 'Market, adoption, trust, segments and timing' },
+      { file: 'user_analysis.md', type: 'analysis', name: 'User Analysis', preview: 'Personas, true demand, workflows and adoption barriers' },
+      { file: 'competitor_analysis.md', type: 'analysis', name: 'Competitor Analysis', preview: 'Competitive layers, capability matrix and strategic meaning' },
+      { file: 'analysis_synthesis.md', type: 'synthesis', name: 'Analysis Synthesis', preview: 'Module-level conclusions and editorial handoff' },
+      { file: 'profiles.md', type: 'profile', name: 'Product Profiles', preview: 'Structured product profiles derived from evidence' },
+      { file: 'claims.md', type: 'claim', name: 'Claim Pack', preview: 'Fact, comparison, insight and recommendation claims' },
+    ],
+    editor: [
+      { file: 'editorial_plan.md', type: 'plan', name: 'Editorial Plan', preview: 'How Analyst modules are organized into the final report' },
+      { file: 'final_report.md', type: 'report', name: 'Final Report', preview: 'Conclusion-first competitive analysis report' },
+      { file: 'editorial_notes.md', type: 'notes', name: 'Editorial Notes', preview: 'Editorial synthesis choices and preserved limitations' },
+    ],
+    reviewer: [
+      { file: 'review_scorecard.md', type: 'review', name: 'Review Scorecard', preview: 'Committee quality review and issue scoring' },
+      { file: 'revision_plan.md', type: 'revision', name: 'Revision Plan', preview: 'Precise artifact-level fixes without full-chain auto rerun' },
+    ],
+  }
+
+  Object.entries(artifactCatalog).forEach(([agentKey, items]) => {
+    states[agentKey].artifacts = items
+      .filter(item => artifactFiles.includes(item.file))
+      .map(item => ({
+        id: item.file,
+        type: item.type,
+        name: item.name,
+        agent: states[agentKey].name,
+        preview: item.preview,
+      }))
+  })
 
   // Researcher artifacts from sources
   if (sources && sources.length > 0) {
     states.researcher.status = 'completed'
-    states.researcher.artifacts = sources.slice(0, 3).map((s: any, idx: number) => ({
-      id: s.source_id || `src_${idx}`,
-      type: 'source',
-      name: s.title || `Source ${idx + 1}`,
-      agent: 'Researcher',
-      preview: s.raw_excerpt ? s.raw_excerpt.slice(0, 100) + '...' : 'Raw source data',
-    }))
     states.researcher.logs = [
       `[${new Date().toISOString().slice(11, 19)}] Starting data collection`,
       `[${new Date().toISOString().slice(11, 19)}] Loaded ${sources.length} sources from data pack`,
@@ -60,29 +93,9 @@ function buildArtifactsFromData(
     ]
   }
 
-  // Researcher evidence artifacts
-  if (evidence && evidence.length > 0) {
-    states.researcher.artifacts.push(...evidence.slice(0, 2).map((e: any, idx: number) => ({
-      id: e.evidence_id || `evd_${idx}`,
-      type: 'evidence',
-      name: `Evidence: ${e.dimension || 'general'}`,
-      agent: 'Researcher',
-      preview: e.fact ? e.fact.slice(0, 80) + '...' : 'Extracted evidence',
-    })))
-  }
-
   // Analyst artifacts from evidence and claims
   if (claims && claims.length > 0) {
     states.analyst.status = 'completed'
-    states.analyst.artifacts = claims.slice(0, 3).map((c: any, idx: number) => ({
-      id: c.claim_id || `clm_${idx}`,
-      type: c.claim_type || 'claim',
-      name: c.claim_type === 'comparison' ? 'Comparison Analysis' :
-            c.claim_type === 'insight' ? 'Market Insight' :
-            c.claim_type === 'recommendation' ? 'Recommendation' : `Claim ${idx + 1}`,
-      agent: 'Analyst',
-      preview: c.text ? c.text.slice(0, 100) + '...' : 'Analyzed claim',
-    }))
     states.analyst.logs = [
       `[${new Date().toISOString().slice(11, 19)}] Starting analysis`,
       `[${new Date().toISOString().slice(11, 19)}] Building product profiles from ${evidence?.length || 0} evidence cards`,
@@ -91,27 +104,20 @@ function buildArtifactsFromData(
     ]
   }
 
-  // Writer artifacts
-  if (events.some(e => e.node_name === 'writer' && e.event_type === 'NODE_SUCCEEDED')) {
-    states.writer.status = 'completed'
-    states.writer.artifacts = [
-      { id: 'draft_summary', type: 'report', name: 'Executive Summary', agent: 'Writer', preview: 'Top-level findings and strategic recommendations' },
-      { id: 'draft_matrix', type: 'matrix', name: 'Comparison Matrix', agent: 'Writer', preview: 'Side-by-side feature and capability comparison' },
-    ]
-    states.writer.logs = [
-      `[${new Date().toISOString().slice(11, 19)}] Starting report drafting`,
+  // Editor artifacts
+  if (events.some(e => ['editor', 'writer'].includes(e.node_name || '') && e.event_type === 'NODE_SUCCEEDED')) {
+    states.editor.status = 'completed'
+    states.editor.logs = [
+      `[${new Date().toISOString().slice(11, 19)}] Starting editorial synthesis`,
       `[${new Date().toISOString().slice(11, 19)}] Synthesizing ${claims?.length || 0} claims into narrative`,
-      `[${new Date().toISOString().slice(11, 19)}] Generated executive summary`,
-      `[${new Date().toISOString().slice(11, 19)}] Draft report completed`,
+      `[${new Date().toISOString().slice(11, 19)}] Generated final report`,
+      `[${new Date().toISOString().slice(11, 19)}] Editorial phase completed`,
     ]
   }
 
   // Reviewer artifacts
   if (events.some(e => e.node_name === 'reviewer' && e.event_type === 'NODE_SUCCEEDED')) {
     states.reviewer.status = 'completed'
-    states.reviewer.artifacts = [
-      { id: 'review_report', type: 'review', name: 'Quality Review Report', agent: 'Reviewer', preview: 'Coverage: 100%, Issues: 0, Status: PASSED' },
-    ]
     states.reviewer.logs = [
       `[${new Date().toISOString().slice(11, 19)}] Starting quality review`,
       `[${new Date().toISOString().slice(11, 19)}] Validating ${claims?.length || 0} claims`,
@@ -122,7 +128,7 @@ function buildArtifactsFromData(
 
   // Update status based on events
   events.forEach((ev: LogEvent) => {
-    const node = ev.node_name?.toLowerCase()
+    const node = ev.node_name?.toLowerCase() === 'writer' ? 'editor' : ev.node_name?.toLowerCase()
     if (!node || !states[node]) return
 
     if (ev.event_type === 'NODE_STARTED') {
@@ -156,7 +162,7 @@ export default function RunWorkbench() {
   const [agentStates, setAgentStates] = useState<Record<string, AgentState>>({
     researcher: { name: 'Researcher', status: 'pending', logs: [], artifacts: [] },
     analyst: { name: 'Analyst', status: 'pending', logs: [], artifacts: [] },
-    writer: { name: 'Writer', status: 'pending', logs: [], artifacts: [] },
+    editor: { name: 'Editor', status: 'pending', logs: [], artifacts: [] },
     reviewer: { name: 'Reviewer', status: 'pending', logs: [], artifacts: [] },
   })
 
@@ -168,13 +174,14 @@ export default function RunWorkbench() {
   const fetchData = useCallback(async () => {
     if (!taskId) return
     try {
-      const [t, e, r, s, ev, c] = await Promise.all([
+      const [t, e, r, s, ev, c, a] = await Promise.all([
         getTask(taskId),
         getEvents(taskId),
         getReport(taskId).catch(() => null),
         getSources(taskId).catch(() => []),
         getEvidence(taskId).catch(() => []),
         getClaims(taskId).catch(() => []),
+        getArtifacts(taskId).catch(() => ({ artifacts: [] })),
       ])
 
       setTask(t)
@@ -185,7 +192,7 @@ export default function RunWorkbench() {
       setClaims(c)
 
       // Build agent states from real data
-      const states = buildArtifactsFromData(s, ev, c, e)
+      const states = buildArtifactsFromData(s, ev, c, e, a.artifacts || [])
       setAgentStates(states)
     } catch (err) {
       console.error('Failed to fetch data:', err)

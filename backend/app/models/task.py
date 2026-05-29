@@ -11,7 +11,7 @@ class TaskSpec(BaseModel):
     main_product: str = Field(..., description="待分析主品")
     competitors: list[str] = Field(..., description="竞品列表")
     analysis_goal: str = Field(..., description="分析目标")
-    data_mode: Literal["mock", "web", "hybrid"] = Field(default="web", description="数据模式")
+    data_mode: Literal["mock", "mock_broken", "web", "hybrid"] = Field(default="web", description="数据模式")
     schema_pack: str = Field(default="ai_agent", description="使用的 Schema Pack")
 
 

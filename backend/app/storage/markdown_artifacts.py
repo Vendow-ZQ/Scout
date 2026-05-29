@@ -52,6 +52,92 @@ def _write_markdown(task_id: str, filename: str, lines: list[str]) -> str:
     return _artifact_ref(task_id, filename)
 
 
+def save_markdown_artifact(task_id: str, filename: str, content: str) -> str:
+    """Save a named Markdown artifact produced by an agent."""
+    cleaned = (content or "").strip()
+    if not cleaned:
+        cleaned = "# Empty Artifact\n\n信息不足。"
+    path = _artifact_path(task_id, filename)
+    path.write_text(cleaned.rstrip() + "\n", encoding="utf-8")
+    return _artifact_ref(task_id, filename)
+
+
+def save_research_plan_markdown(
+    task_id: str,
+    run_id: str,
+    content: str,
+    *,
+    schema_pack: str,
+    source_count: int,
+) -> str:
+    prefix = [
+        "# Research Plan",
+        "",
+        f"- task_id: `{task_id}`",
+        f"- run_id: `{run_id}`",
+        f"- schema_pack: `{schema_pack}`",
+        f"- source_count: `{source_count}`",
+        "",
+    ]
+    return _write_markdown(task_id, "research_plan.md", prefix + [content])
+
+
+def save_research_synthesis_markdown(
+    task_id: str,
+    run_id: str,
+    content: str,
+    *,
+    evidence_count: int,
+) -> str:
+    prefix = [
+        "# Research Synthesis",
+        "",
+        f"- task_id: `{task_id}`",
+        f"- run_id: `{run_id}`",
+        f"- evidence_count: `{evidence_count}`",
+        "",
+    ]
+    return _write_markdown(task_id, "research_synthesis.md", prefix + [content])
+
+
+def save_analysis_plan_markdown(task_id: str, run_id: str, content: str) -> str:
+    return _write_markdown(
+        task_id,
+        "analysis_plan.md",
+        ["# Analysis Plan", "", f"- task_id: `{task_id}`", f"- run_id: `{run_id}`", "", content],
+    )
+
+
+def save_analysis_module_markdown(task_id: str, filename: str, title: str, content: str) -> str:
+    if not content.strip().startswith("#"):
+        content = f"# {title}\n\n{content}"
+    return save_markdown_artifact(task_id, filename, content)
+
+
+def save_analysis_synthesis_markdown(task_id: str, run_id: str, content: str) -> str:
+    return _write_markdown(
+        task_id,
+        "analysis_synthesis.md",
+        ["# Analysis Synthesis", "", f"- task_id: `{task_id}`", f"- run_id: `{run_id}`", "", content],
+    )
+
+
+def save_editorial_plan_markdown(task_id: str, run_id: str, content: str) -> str:
+    return _write_markdown(
+        task_id,
+        "editorial_plan.md",
+        ["# Editorial Plan", "", f"- task_id: `{task_id}`", f"- run_id: `{run_id}`", "", content],
+    )
+
+
+def save_editorial_notes_markdown(task_id: str, run_id: str, content: str) -> str:
+    return _write_markdown(
+        task_id,
+        "editorial_notes.md",
+        ["# Editorial Notes", "", f"- task_id: `{task_id}`", f"- run_id: `{run_id}`", "", content],
+    )
+
+
 def save_sources_markdown(
     task_id: str,
     run_id: str,
@@ -224,7 +310,7 @@ def save_report_markdown(task_id: str, run_id: str, report: dict[str, Any]) -> s
     dimensions = matrix.get("dimensions") or []
     products = matrix.get("products") or []
     lines = [
-        "# Competitive Analysis Report",
+        "# Final Competitive Analysis Report",
         "",
         f"- task_id: `{task_id}`",
         f"- run_id: `{run_id}`",
@@ -299,13 +385,13 @@ def save_report_markdown(task_id: str, run_id: str, report: dict[str, Any]) -> s
             str(report.get("conclusion") or "信息不足"),
         ]
     )
-    return _write_markdown(task_id, "report.md", lines)
+    return _write_markdown(task_id, "final_report.md", lines)
 
 
-def save_review_markdown(task_id: str, run_id: str, review: dict[str, Any]) -> str:
+def save_review_scorecard_markdown(task_id: str, run_id: str, review: dict[str, Any]) -> str:
     issues = review.get("issues") or []
     lines = [
-        "# Review Artifact",
+        "# Review Scorecard",
         "",
         f"- task_id: `{task_id}`",
         f"- run_id: `{run_id}`",
@@ -358,4 +444,43 @@ def save_review_markdown(task_id: str, run_id: str, review: dict[str, Any]) -> s
     if not review.get("issue_history"):
         lines.append("- 暂无历史")
 
-    return _write_markdown(task_id, "review.md", lines)
+    return _write_markdown(task_id, "review_scorecard.md", lines)
+
+
+def save_revision_plan_markdown(task_id: str, run_id: str, review: dict[str, Any]) -> str:
+    issues = [item for item in review.get("issues") or [] if item.get("status") == "open"]
+    lines = [
+        "# Revision Plan",
+        "",
+        f"- task_id: `{task_id}`",
+        f"- run_id: `{run_id}`",
+        f"- verdict: `{review.get('verdict') or ('pass' if review.get('review_passed') else 'revise')}`",
+        f"- open_issues: `{len(issues)}`",
+        "",
+        "## Default Policy",
+        "",
+        "Reviewer does not automatically rerun the full chain. It points to the exact artifact and owner. P0 only supports Editor regeneration from existing analysis for report-layer issues.",
+        "",
+        "## Required Fixes",
+        "",
+    ]
+    if not issues:
+        lines.append("- No required fixes. Report can be accepted.")
+    for issue in issues:
+        lines.extend(
+            [
+                f"### {issue.get('issue_id')} - {issue.get('issue_type')}",
+                "",
+                f"- severity: `{issue.get('severity')}`",
+                f"- target_agent: `{issue.get('target_agent')}`",
+                f"- target_object_id: `{issue.get('target_object_id')}`",
+                "",
+                f"**Issue**: {issue.get('message')}",
+                "",
+                f"**Required fix**: {issue.get('required_fix')}",
+                "",
+            ]
+        )
+    if review.get("revision_plan"):
+        lines.extend(["", "## Committee Notes", "", str(review.get("revision_plan"))])
+    return _write_markdown(task_id, "revision_plan.md", lines)

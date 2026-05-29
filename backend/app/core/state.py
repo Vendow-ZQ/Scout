@@ -16,14 +16,23 @@ class ScoutState(TypedDict, total=False):
     # Agent inputs/outputs
     sources: list[dict[str, Any]]
     evidence: list[dict[str, Any]]
+    research_plan: str
+    research_synthesis: str
     profiles: list[dict[str, Any]]
     claims: list[dict[str, Any]]
+    analysis_plan: str
+    market_analysis: str
+    user_analysis: str
+    competitor_analysis: str
+    analysis_synthesis: str
     report: dict[str, Any] | None
+    editorial_plan: str
+    editorial_notes: str
 
     # Reviewer feedback
     review_issues: list[dict[str, Any]]
     review_passed: bool
-    retry_target: str | None  # researcher | analyst | writer
+    retry_target: str | None  # researcher | analyst | editor; ownership only, no automatic rerun
     retry_count: int
 
     # Observability

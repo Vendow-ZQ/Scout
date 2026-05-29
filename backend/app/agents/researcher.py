@@ -17,7 +17,12 @@ from app.core.prompt_loader import load_agent_prompt
 from app.core.state import ScoutState
 from app.models.evidence import EvidenceCard, SourceRecord
 from app.storage.artifact_store import save_artifact
-from app.storage.markdown_artifacts import save_evidence_markdown, save_sources_markdown
+from app.storage.markdown_artifacts import (
+    save_evidence_markdown,
+    save_research_plan_markdown,
+    save_research_synthesis_markdown,
+    save_sources_markdown,
+)
 
 
 class ExtractedEvidenceItem(BaseModel):
@@ -36,8 +41,16 @@ class ExtractedEvidenceItem(BaseModel):
 class EvidenceExtractionOutput(BaseModel):
     """LLM output schema for evidence extraction."""
 
+    research_plan: str = Field(
+        ...,
+        description="Markdown body. 说明研究问题拆解、研究 tracks、关键词/来源策略、fallback 规则和证据标准。",
+    )
     evidence_cards: list[ExtractedEvidenceItem] = Field(
-        ..., description="从所有来源提取的证据卡片列表"
+        ..., description="从来源中提取的高价值证据卡片列表。优先覆盖所有产品和主要研究 tracks，数量建议 18-28 条。"
+    )
+    research_synthesis: str = Field(
+        ...,
+        description="Markdown body. 汇总已发现事实、证据覆盖、信息缺口和交给 Analyst 的重点问题。",
     )
 
 
@@ -62,20 +75,24 @@ def _extract_evidence_with_llm(
     sources: list[SourceRecord],
     task_id: str,
     run_id: str,
-) -> list[EvidenceCard]:
+    task_context: dict[str, Any],
+) -> tuple[list[EvidenceCard], str, str]:
     """Use Doubao LLM to intelligently extract evidence cards from sources."""
     # Prepare input for LLM
     sources_data = []
     for src in sources:
+        excerpt = src.raw_excerpt
+        if len(excerpt) > 900:
+            excerpt = excerpt[:900] + "..."
         sources_data.append({
             "source_id": src.source_id,
             "title": src.title,
             "source_type": src.source_type,
             "product": src.product,
-            "raw_excerpt": src.raw_excerpt,
+            "raw_excerpt": excerpt,
         })
 
-    inputs = {"sources": sources_data}
+    inputs = {"task_context": task_context, "sources": sources_data}
 
     result = llm_adapter.generate_structured(
         prompt_name="evidence_extraction",
@@ -120,7 +137,7 @@ def _extract_evidence_with_llm(
             )
         )
 
-    return evidence
+    return evidence, result.research_plan, result.research_synthesis
 
 
 def researcher_node(state: ScoutState) -> dict[str, Any]:
@@ -136,7 +153,7 @@ def researcher_node(state: ScoutState) -> dict[str, Any]:
         run_id=run_id,
         node_name="researcher",
         agent_name="ResearcherAgent",
-            payload={"schema_pack": schema_pack, "data_mode": data_mode, "retry_count": retry_count},
+        payload={"schema_pack": schema_pack, "data_mode": data_mode, "retry_count": retry_count},
     )
 
     try:
@@ -145,8 +162,30 @@ def researcher_node(state: ScoutState) -> dict[str, Any]:
 
         sources = _load_sources(task_id, run_id, schema_pack, use_broken=use_broken)
 
+        from app.storage.sqlite_store import get_task
+
+        task = get_task(task_id)
+        task_config: dict[str, Any] = {}
+        if task and isinstance(task.get("config"), str):
+            task_config = json.loads(task["config"])
+        elif task:
+            task_config = task.get("config", {})
+
+        task_context = {
+            "industry": task_config.get("industry", "Unknown"),
+            "region": task_config.get("region", "Unknown"),
+            "main_product": task_config.get("main_product", "Unknown"),
+            "competitors": task_config.get("competitors", []),
+            "analysis_goal": task_config.get("analysis_goal", ""),
+        }
+
         # Use LLM for intelligent evidence extraction
-        evidence = _extract_evidence_with_llm(sources, task_id, run_id)
+        evidence, research_plan, research_synthesis = _extract_evidence_with_llm(
+            sources,
+            task_id,
+            run_id,
+            task_context,
+        )
 
         # Save machine-readable JSON plus human-readable Markdown sidecars.
         sources_payload = [s.model_dump(mode="json") for s in sources]
@@ -162,11 +201,26 @@ def researcher_node(state: ScoutState) -> dict[str, Any]:
             use_broken=use_broken,
         )
         evidence_md_ref = save_evidence_markdown(task_id, run_id, evidence)
+        research_plan_ref = save_research_plan_markdown(
+            task_id,
+            run_id,
+            research_plan,
+            schema_pack=schema_pack,
+            source_count=len(sources),
+        )
+        research_synthesis_ref = save_research_synthesis_markdown(
+            task_id,
+            run_id,
+            research_synthesis,
+            evidence_count=len(evidence),
+        )
 
+        log_artifact_saved(task_id, run_id, "research_plan", research_plan_ref, payload={"format": "markdown"})
         log_artifact_saved(task_id, run_id, "sources", sources_ref, payload={"format": "json"})
         log_artifact_saved(task_id, run_id, "sources_markdown", sources_md_ref, payload={"format": "markdown"})
         log_artifact_saved(task_id, run_id, "evidence", evidence_ref, payload={"format": "json"})
         log_artifact_saved(task_id, run_id, "evidence_markdown", evidence_md_ref, payload={"format": "markdown"})
+        log_artifact_saved(task_id, run_id, "research_synthesis", research_synthesis_ref, payload={"format": "markdown"})
 
         log_node_succeeded(
             task_id=task_id,
@@ -174,12 +228,21 @@ def researcher_node(state: ScoutState) -> dict[str, Any]:
             node_name="researcher",
             agent_name="ResearcherAgent",
             payload={"source_count": len(sources), "evidence_count": len(evidence)},
-            artifact_refs=[sources_ref, sources_md_ref, evidence_ref, evidence_md_ref],
+            artifact_refs=[
+                research_plan_ref,
+                sources_ref,
+                sources_md_ref,
+                evidence_ref,
+                evidence_md_ref,
+                research_synthesis_ref,
+            ],
         )
 
         return {
             "sources": sources_payload,
             "evidence": evidence_payload,
+            "research_plan": research_plan,
+            "research_synthesis": research_synthesis,
             "current_node": "researcher",
             "node_history": state.get("node_history", []) + ["researcher"],
         }

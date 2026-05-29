@@ -14,7 +14,11 @@ from app.core.logging import (
 from app.core.prompt_loader import load_agent_prompt
 from app.core.state import ScoutState
 from app.storage.artifact_store import save_artifact
-from app.storage.markdown_artifacts import save_report_markdown
+from app.storage.markdown_artifacts import (
+    save_editorial_notes_markdown,
+    save_editorial_plan_markdown,
+    save_report_markdown,
+)
 
 
 class ComparisonMatrixItem(BaseModel):
@@ -36,8 +40,9 @@ class SWOT(BaseModel):
 
 
 class ReportOutput(BaseModel):
-    """LLM output schema for writer agent."""
+    """LLM output schema for editor agent."""
 
+    editorial_plan: str = Field(..., description="Markdown body. 说明如何把 Analyst modules 编成一份完整报告。")
     executive_summary: str = Field(..., description="执行摘要，200-400字，概括分析核心发现")
     scope: str = Field(..., description="分析范围说明")
     comparison_matrix: list[ComparisonMatrixItem] = Field(
@@ -54,24 +59,31 @@ class ReportOutput(BaseModel):
     evidence_coverage_assessment: str = Field(
         ..., description="对证据覆盖率的评估：哪些 claim 证据充分，哪些不足"
     )
+    editorial_notes: str = Field(..., description="Markdown body. 编者说明：重组了哪些观点、哪些不确定性被保留、哪些内容不应过度解读。")
 
 
 def writer_node(state: ScoutState) -> dict[str, Any]:
-    """LangGraph node: Writer Agent generates report draft via LLM."""
+    """LangGraph node: Editor Agent generates the final report via LLM."""
     task_id = state.get("task_id", "unknown")
     run_id = state.get("run_id", "unknown")
 
     log_node_started(
         task_id=task_id,
         run_id=run_id,
-        node_name="writer",
-        agent_name="WriterAgent",
+        node_name="editor",
+        agent_name="EditorAgent",
     )
 
     try:
         profiles = state.get("profiles", [])
         claims = state.get("claims", [])
         evidence = state.get("evidence", [])
+        analysis_modules = {
+            "market_analysis": state.get("market_analysis", ""),
+            "user_analysis": state.get("user_analysis", ""),
+            "competitor_analysis": state.get("competitor_analysis", ""),
+            "analysis_synthesis": state.get("analysis_synthesis", ""),
+        }
 
         # Get task context
         from app.storage.sqlite_store import get_task
@@ -91,6 +103,7 @@ def writer_node(state: ScoutState) -> dict[str, Any]:
             },
             "profiles": profiles,
             "claims": claims,
+            "analysis_modules": analysis_modules,
             "evidence_summary": {
                 "total_evidence": len(evidence),
                 "products_covered": list(set(e.get("product", "") for e in evidence)),
@@ -102,7 +115,7 @@ def writer_node(state: ScoutState) -> dict[str, Any]:
             prompt_name="report_generation",
             inputs=inputs,
             output_schema=ReportOutput,
-            system_prompt=load_agent_prompt("writer"),
+            system_prompt=load_agent_prompt("editor"),
             metadata={"task_id": task_id, "run_id": run_id},
             temperature=0.4,
         )
@@ -141,40 +154,48 @@ def writer_node(state: ScoutState) -> dict[str, Any]:
             "claim_count": claim_count,
             "evidence_coverage": coverage,
             "evidence_coverage_assessment": result.evidence_coverage_assessment,
+            "editorial_plan": result.editorial_plan,
+            "editorial_notes": result.editorial_notes,
             "source_appendix": [],
         }
 
         # Save machine-readable JSON plus human-readable Markdown sidecar.
         report_ref = save_artifact(task_id, "report.json", report)
         report_md_ref = save_report_markdown(task_id, run_id, report)
+        editorial_plan_ref = save_editorial_plan_markdown(task_id, run_id, result.editorial_plan)
+        editorial_notes_ref = save_editorial_notes_markdown(task_id, run_id, result.editorial_notes)
 
         log_artifact_saved(task_id, run_id, "report", report_ref, payload={"format": "json"})
-        log_artifact_saved(task_id, run_id, "report_markdown", report_md_ref, payload={"format": "markdown"})
+        log_artifact_saved(task_id, run_id, "final_report", report_md_ref, payload={"format": "markdown"})
+        log_artifact_saved(task_id, run_id, "editorial_plan", editorial_plan_ref, payload={"format": "markdown"})
+        log_artifact_saved(task_id, run_id, "editorial_notes", editorial_notes_ref, payload={"format": "markdown"})
 
         log_node_succeeded(
             task_id=task_id,
             run_id=run_id,
-            node_name="writer",
-            agent_name="WriterAgent",
+            node_name="editor",
+            agent_name="EditorAgent",
             payload={
                 "claim_count": claim_count,
                 "evidence_coverage": coverage,
             },
-            artifact_refs=[report_ref, report_md_ref],
+            artifact_refs=[editorial_plan_ref, report_ref, report_md_ref, editorial_notes_ref],
         )
 
         return {
             "report": report,
-            "current_node": "writer",
-            "node_history": state.get("node_history", []) + ["writer"],
+            "editorial_plan": result.editorial_plan,
+            "editorial_notes": result.editorial_notes,
+            "current_node": "editor",
+            "node_history": state.get("node_history", []) + ["editor"],
         }
 
     except Exception as e:
         log_node_failed(
             task_id=task_id,
             run_id=run_id,
-            node_name="writer",
-            agent_name="WriterAgent",
+            node_name="editor",
+            agent_name="EditorAgent",
             error=str(e),
         )
         raise

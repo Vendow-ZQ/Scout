@@ -125,9 +125,18 @@ async def api_run_task(task_id: str) -> dict[str, Any]:
             "data_mode": config.get("data_mode", "web"),
             "sources": [],
             "evidence": [],
+            "research_plan": "",
+            "research_synthesis": "",
             "profiles": [],
             "claims": [],
+            "analysis_plan": "",
+            "market_analysis": "",
+            "user_analysis": "",
+            "competitor_analysis": "",
+            "analysis_synthesis": "",
             "report": None,
+            "editorial_plan": "",
+            "editorial_notes": "",
             "review_issues": [],
             "review_passed": False,
             "retry_target": None,
@@ -176,7 +185,7 @@ async def api_run_task(task_id: str) -> dict[str, Any]:
             log_run_failed(
                 task_id=task_id,
                 run_id=run_id,
-                reason=f"Reviewer failed with target: {result.get('retry_target')}",
+                reason=f"Reviewer requested revision for: {result.get('retry_target')}",
                 payload={
                     "issues": result.get("review_issues", []),
                     "retry_target": result.get("retry_target"),
@@ -195,6 +204,67 @@ async def api_run_task(task_id: str) -> dict[str, Any]:
     except Exception as e:
         log_run_failed(task_id=task_id, run_id=run_id, reason=str(e))
         update_task_status(task_id=task_id, status="failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{task_id}/regenerate-report")
+async def api_regenerate_report(task_id: str) -> dict[str, Any]:
+    """Regenerate only the Editor report from existing Researcher/Analyst artifacts."""
+    import asyncio
+
+    from app.agents.writer import writer_node
+    from app.storage.artifact_store import load_artifact, load_text_artifact
+
+    task = get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    run_id = f"run_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_editor_regen"
+    config = task.get("config", "{}")
+    if isinstance(config, str):
+        import json
+
+        config = json.loads(config)
+
+    try:
+        state: ScoutState = {
+            "task_id": task_id,
+            "run_id": run_id,
+            "schema_pack": config.get("schema_pack", "ai_agent"),
+            "data_mode": config.get("data_mode", "web"),
+            "sources": load_artifact(task_id, "sources.json") or [],
+            "evidence": load_artifact(task_id, "evidence.json") or [],
+            "research_plan": load_text_artifact(task_id, "research_plan.md") or "",
+            "research_synthesis": load_text_artifact(task_id, "research_synthesis.md") or "",
+            "profiles": load_artifact(task_id, "profiles.json") or [],
+            "claims": load_artifact(task_id, "claims.json") or [],
+            "analysis_plan": load_text_artifact(task_id, "analysis_plan.md") or "",
+            "market_analysis": load_text_artifact(task_id, "market_analysis.md") or "",
+            "user_analysis": load_text_artifact(task_id, "user_analysis.md") or "",
+            "competitor_analysis": load_text_artifact(task_id, "competitor_analysis.md") or "",
+            "analysis_synthesis": load_text_artifact(task_id, "analysis_synthesis.md") or "",
+            "report": None,
+            "editorial_plan": "",
+            "editorial_notes": "",
+            "review_issues": [],
+            "review_passed": False,
+            "retry_target": None,
+            "retry_count": 0,
+            "current_node": None,
+            "node_history": ["editor_regeneration"],
+            "trace_refs": [],
+            "messages": [],
+        }
+        result = await asyncio.to_thread(writer_node, state)
+        return {
+            "task_id": task_id,
+            "run_id": run_id,
+            "status": "regenerated",
+            "node": "editor",
+            "report": result.get("report"),
+        }
+    except Exception as e:
+        log_run_failed(task_id=task_id, run_id=run_id, reason=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -282,7 +352,7 @@ def _generate_run_summary(
 - **llm_provider**: {settings.llm_provider}
 - **reviewer_issues**: {len(issues)}
 - **final_report**: {report.get("claim_count", 0)} claims, {(report.get("evidence_coverage", 0) * 100):.0f}% evidence coverage
-- **demo_notes**: End-to-end completed with Reviewer loop. Node history: {' -> '.join(node_history)}
+- **demo_notes**: End-to-end completed with auditable Markdown artifacts. Reviewer writes scorecard/revision plan and does not auto-rerun the full chain. Node history: {' -> '.join(node_history)}
 
 ## Reviewer Issues
 
@@ -290,7 +360,7 @@ def _generate_run_summary(
     if issues:
         for issue in issues:
             status_icon = "✅" if issue.get("status") in ("fixed", "accepted_risk") else "❌"
-            summary += f"- {status_icon} [{issue.get('severity', '')}] {issue.get('issue_type', '')}: {issue.get('message', '')[:100]}\\n"
+            summary += f"- {status_icon} [{issue.get('severity', '')}] {issue.get('issue_type', '')}: {issue.get('message', '')[:100]}\n"
     else:
         summary += "- No issues found.\\n"
 
@@ -299,23 +369,33 @@ def _generate_run_summary(
 
 """
     for i, node in enumerate(node_history, 1):
-        summary += f"{i}. {node}\\n"
+        summary += f"{i}. {node}\n"
 
     summary += f"""
 ## Artifacts
 
 - `runtime/artifacts/{task_id}/sources.json`
+- `runtime/artifacts/{task_id}/research_plan.md`
 - `runtime/artifacts/{task_id}/sources.md`
 - `runtime/artifacts/{task_id}/evidence.json`
 - `runtime/artifacts/{task_id}/evidence.md`
+- `runtime/artifacts/{task_id}/research_synthesis.md`
+- `runtime/artifacts/{task_id}/analysis_plan.md`
 - `runtime/artifacts/{task_id}/profiles.json`
 - `runtime/artifacts/{task_id}/profiles.md`
 - `runtime/artifacts/{task_id}/claims.json`
 - `runtime/artifacts/{task_id}/claims.md`
+- `runtime/artifacts/{task_id}/market_analysis.md`
+- `runtime/artifacts/{task_id}/user_analysis.md`
+- `runtime/artifacts/{task_id}/competitor_analysis.md`
+- `runtime/artifacts/{task_id}/analysis_synthesis.md`
+- `runtime/artifacts/{task_id}/editorial_plan.md`
 - `runtime/artifacts/{task_id}/report.json`
-- `runtime/artifacts/{task_id}/report.md`
+- `runtime/artifacts/{task_id}/final_report.md`
+- `runtime/artifacts/{task_id}/editorial_notes.md`
 - `runtime/artifacts/{task_id}/review.json`
-- `runtime/artifacts/{task_id}/review.md`
+- `runtime/artifacts/{task_id}/review_scorecard.md`
+- `runtime/artifacts/{task_id}/revision_plan.md`
 - `runtime/logs/{task_id}.jsonl`
 
 Generated at: {datetime.utcnow().isoformat()} UTC

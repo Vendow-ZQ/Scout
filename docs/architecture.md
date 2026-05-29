@@ -406,4 +406,4 @@ Provider changes should stay behind the LLM adapter. Agent prompts and artifact 
 
 ## 12. Implementation Notes
 
-The current codebase may still contain legacy names such as `writer.py` or prompt file `writer.md`. Product architecture now calls this role **Editor**. Rename code in a dedicated implementation slice to avoid mixing semantic migration with unrelated runtime work.
+The runtime node and prompt now use **Editor**. The Python implementation file may still be named `writer.py` as a legacy filename; treat it as the Editor node until a dedicated file rename slice is worth the churn.

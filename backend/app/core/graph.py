@@ -11,16 +11,10 @@ from app.core.state import ScoutState
 
 # Use MemorySaver for MVP demo (supports checkpoint/resume within process)
 checkpointer = MemorySaver()
-MAX_RETRY_COUNT = 1
 
 
 def _route_after_reviewer(state: ScoutState) -> str:
-    """Conditional edge: route based on reviewer result."""
-    if state.get("review_passed"):
-        return "end"
-    target = state.get("retry_target")
-    if target and state.get("retry_count", 0) <= MAX_RETRY_COUNT:
-        return target
+    """Reviewer writes a revision plan; it does not auto-rerun the chain."""
     return "end"
 
 
@@ -31,14 +25,14 @@ def build_graph() -> StateGraph:
     # Add nodes
     workflow.add_node("researcher", researcher_node)
     workflow.add_node("analyst", analyst_node)
-    workflow.add_node("writer", writer_node)
+    workflow.add_node("editor", writer_node)
     workflow.add_node("reviewer", reviewer_node)
 
     # Define edges
     workflow.set_entry_point("researcher")
     workflow.add_edge("researcher", "analyst")
-    workflow.add_edge("analyst", "writer")
-    workflow.add_edge("writer", "reviewer")
+    workflow.add_edge("analyst", "editor")
+    workflow.add_edge("editor", "reviewer")
 
     # Conditional edge from reviewer
     workflow.add_conditional_edges(
@@ -46,9 +40,6 @@ def build_graph() -> StateGraph:
         _route_after_reviewer,
         {
             "end": END,
-            "researcher": "researcher",
-            "analyst": "analyst",
-            "writer": "writer",
         },
     )
 

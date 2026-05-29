@@ -18,7 +18,7 @@ export default function AgentGraph({ nodeStatus }: AgentGraphProps) {
     const agents = [
       { id: 'researcher', label: 'Researcher', desc: 'Collect sources' },
       { id: 'analyst', label: 'Analyst', desc: 'Structure evidence' },
-      { id: 'writer', label: 'Writer', desc: 'Draft report' },
+      { id: 'editor', label: 'Editor', desc: 'Edit final report' },
       { id: 'reviewer', label: 'Reviewer', desc: 'Quality check' },
     ]
 
@@ -56,8 +56,8 @@ export default function AgentGraph({ nodeStatus }: AgentGraphProps) {
 
   const edges: Edge[] = useMemo(() => [
     { id: 'e1-2', source: 'researcher', target: 'analyst', style: { stroke: scout.accent.steel } },
-    { id: 'e2-3', source: 'analyst', target: 'writer', style: { stroke: scout.accent.steel } },
-    { id: 'e3-4', source: 'writer', target: 'reviewer', style: { stroke: scout.accent.steel } },
+    { id: 'e2-3', source: 'analyst', target: 'editor', style: { stroke: scout.accent.steel } },
+    { id: 'e3-4', source: 'editor', target: 'reviewer', style: { stroke: scout.accent.steel } },
   ], [])
 
   return (
