@@ -130,18 +130,24 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
                 "analysis_modules": analysis_modules,
             },
             "sources": [
-                {"source_id": s.get("source_id"), "title": s.get("title"), "product": s.get("product")}
+                {
+                    "source_id": s.get("source_id"),
+                    "title": s.get("title"),
+                    "source_type": s.get("source_type"),
+                    "product": s.get("product"),
+                }
                 for s in sources
             ],
             "evidence": [
                 {
                     "evidence_id": e.get("evidence_id"),
+                    "source_id": e.get("source_id"),
                     "product": e.get("product"),
                     "dimension": e.get("dimension"),
-                    "fact": e.get("fact", "")[:100],
+                    "fact": e.get("fact", "")[:260],
                     "confidence": e.get("confidence"),
                 }
-                for e in evidence[:30]  # limit context
+                for e in evidence[:45]  # keep enough context for long-tail competitors
             ],
             "profiles": [
                 {
@@ -155,7 +161,7 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
             "claims_summary": [
                 {
                     "claim_id": c.get("claim_id"),
-                    "text": c.get("text", "")[:80],
+                    "text": c.get("text", "")[:260],
                     "claim_type": c.get("claim_type"),
                     "confidence": c.get("confidence"),
                     "evidence_count": len(c.get("evidence_ids", [])),
@@ -166,6 +172,10 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
                 "executive_summary": (report.get("executive_summary", "")[:1000] if report else "N/A"),
                 "has_comparison_matrix": bool(report and report.get("comparison_matrix")),
                 "has_swot": bool(report and report.get("swot")),
+                "key_claims": report.get("key_claims", [])[:8] if report else [],
+                "evidence_coverage_assessment": (
+                    report.get("evidence_coverage_assessment", "")[:1000] if report else "N/A"
+                ),
                 "claim_count": report.get("claim_count", 0) if report else 0,
                 "evidence_coverage": report.get("evidence_coverage", 0) if report else 0,
             },
@@ -226,6 +236,7 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
         # Determine issue owner. Reviewer does not automatically rerun the graph.
         retry_target = "editor" if result.retry_target == "writer" else result.retry_target
         has_blocker = any(i.severity == "blocker" and i.status == "open" for i in all_issues)
+        has_blocking_issue = any(i.severity in {"blocker", "major"} and i.status == "open" for i in all_issues)
 
         # If LLM says passed but we have open blockers, trust the blockers
         if has_blocker and not retry_target:
@@ -235,7 +246,11 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
                     retry_target = issue.target_agent
                     break
 
-        review_passed = result.review_passed and len([i for i in all_issues if i.status == "open"]) == 0
+        review_passed = not has_blocking_issue and (
+            result.review_passed or result.verdict in {"pass", "accept_with_limitation"}
+        )
+        if review_passed:
+            retry_target = None
 
         # Log review results
         if review_passed:
@@ -244,7 +259,10 @@ def reviewer_node(state: ScoutState) -> dict[str, Any]:
                 run_id=run_id,
                 payload={
                     "issue_count": len(all_issues),
-                    "all_fixed": True,
+                    "blocking_issues": False,
+                    "minor_open_count": len(
+                        [i for i in all_issues if i.status == "open" and i.severity == "minor"]
+                    ),
                     "strengths": result.strengths,
                 },
             )

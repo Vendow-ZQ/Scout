@@ -1,5 +1,6 @@
 .env
 .env.local
+.claude/
 .venv/
 node_modules/
 __pycache__/
@@ -7,6 +8,7 @@ __pycache__/
 *.pyo
 .DS_Store
 *.log
+*.mp4
 runtime/logs/*.jsonl
 runtime/artifacts/*/
 runtime/runs/*/

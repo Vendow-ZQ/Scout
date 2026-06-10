@@ -76,9 +76,9 @@ Included product groups:
 
 - Trae: `src_trae_*`
 - Cursor: `src_cursor_*`
-- Windsurf: `src_windsurf_*`
+- Windsurf: `src_windsurf_*` including official pricing and third-party pricing context
 - GitHub Copilot: `src_github_*`
-- Claude Code: `src_claude_*`
+- Claude Code: `src_claude_*` including official docs, usage limits, data handling and third-party feedback signals
 - OpenAI Codex: `src_codex_*`
 - Devin: `src_devin_*`
 
@@ -86,7 +86,8 @@ Core material:
 
 - Trae competes directly with Cursor and Windsurf in AI IDE experience.
 - Trae also competes indirectly with Claude Code and Codex for agentic coding workflows.
-- GitHub Copilot and Devin define enterprise workflow and delegated-agent reference points.
+- GitHub Copilot and Devin define enterprise workflow and delegated-agent reference points. GitHub Copilot coverage includes official workflow, pricing, risk-mitigation and user-backlash/news signals.
+- Codex coverage intentionally includes official, pricing, system-card, third-party news, review, user-feedback and PR-outcome sources; Researcher should not rely on official Codex material only.
 
 ### Product / Feature
 
@@ -146,6 +147,7 @@ Priority order:
 3. Technical papers / survey sources.
 4. Reputable tech/business/security media.
 5. Third-party reviews only for sentiment and framing, never as sole source for hard facts.
+6. Community feedback only for weak sentiment/risk signals; it must be labeled as anecdotal and should not become a hard product verdict.
 
 The `raw_excerpt` fields are concise human-readable source notes, not full copied articles.
 
@@ -159,6 +161,7 @@ Researcher should:
 - Treat Trae as the main product.
 - Use the product taxonomy to define direct, adjacent and indirect competitors.
 - Extract evidence cards from every major track.
+- For each major product, prefer at least one non-official review/news/user-feedback evidence card when available.
 - Mark privacy/telemetry items as allegations or third-party reports, not official admissions.
 - Mark pricing as time-sensitive because pricing changed across products in 2026.
 - Keep source gaps explicit.

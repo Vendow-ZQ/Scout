@@ -77,6 +77,7 @@ Search queries:
 - `Windsurf Cascade docs tool calling checkpoints MCP`
 - `Windsurf models docs SWE pricing availability`
 - `Windsurf usage plans quota credits`
+- `Windsurf pricing official plans Pro Teams Enterprise`
 - `Cognition acquires Windsurf`
 
 Priority domains:
@@ -93,6 +94,9 @@ Search queries:
 - `GitHub Copilot cloud agent docs`
 - `GitHub Copilot agents GitHub Issues Jira Slack Teams`
 - `GitHub Copilot plans premium requests usage based billing 2026`
+- `GitHub Copilot cloud agent risks prompt injection mitigation`
+- `GitHub Copilot pull request user backlash product tips`
+- `GitHub Copilot security concerns online discussions`
 
 Priority domains:
 
@@ -108,6 +112,9 @@ Search queries:
 - `Claude Code models usage limits Sonnet Opus Haiku`
 - `Claude Code data usage commercial terms`
 - `Claude Code agents MCP CLAUDE.md hooks skills`
+- `Claude Code user feedback rate limit drain`
+- `Claude Code power user complaints quality regression`
+- `Claude Code review AI coding agent 2026`
 
 Priority domains:
 
@@ -123,6 +130,9 @@ Search queries:
 - `OpenAI Codex rate card token based pricing 2026`
 - `OpenAI Codex system card coding agent`
 - `Codex app worktrees sandboxing skills automations`
+- `OpenAI Codex app review developer feedback`
+- `OpenAI Codex PR acceptance rate coding agents`
+- `OpenAI Codex user feedback reliability agent workflows`
 
 Priority domains:
 
@@ -130,6 +140,8 @@ Priority domains:
 - `help.openai.com`
 - `cdn.openai.com`
 - `developers.openai.com`
+- reputable tech media and review pages for product-direction / hands-on evaluation
+- community discussions only as low-confidence user sentiment
 
 ### 3.7 Devin
 
@@ -155,6 +167,7 @@ Researcher should produce at least:
 - 2+ product/feature evidence cards for Trae.
 - 1+ pricing/business evidence card for each major competitor where available.
 - 1+ risk/security evidence card for Trae and remote/cloud-agent category.
+- 1+ non-official review/news/user-feedback evidence card for each major competitor where available; if missing, mark the gap.
 - 3+ market/user evidence cards.
 - A competitor taxonomy separating IDE-native, workflow-native, CLI/app-native, and delegated autonomous software engineer tools.
 

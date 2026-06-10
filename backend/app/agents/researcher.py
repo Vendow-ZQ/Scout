@@ -28,6 +28,10 @@ from app.storage.markdown_artifacts import (
 class ExtractedEvidenceItem(BaseModel):
     """LLM output: one extracted evidence card."""
 
+    source_id: str = Field(
+        ...,
+        description="必须精确引用输入 sources 中存在的 source_id。一个 Evidence Card 只能绑定一个 source_id。",
+    )
     product: str = Field(..., description="关联产品名称，市场级来源用 'market'")
     dimension: str = Field(
         ...,
@@ -46,7 +50,7 @@ class EvidenceExtractionOutput(BaseModel):
         description="Markdown body. 说明研究问题拆解、研究 tracks、关键词/来源策略、fallback 规则和证据标准。",
     )
     evidence_cards: list[ExtractedEvidenceItem] = Field(
-        ..., description="从来源中提取的高价值证据卡片列表。优先覆盖所有产品和主要研究 tracks，数量建议 18-28 条。"
+        ..., description="从来源中提取的高价值证据卡片列表。优先覆盖所有产品和主要研究 tracks，数量建议 24-34 条。"
     )
     research_synthesis: str = Field(
         ...,
@@ -88,6 +92,7 @@ def _extract_evidence_with_llm(
             "source_id": src.source_id,
             "title": src.title,
             "source_type": src.source_type,
+            "url": src.url,
             "product": src.product,
             "raw_excerpt": excerpt,
         })
@@ -108,23 +113,24 @@ def _extract_evidence_with_llm(
     source_map = {s.source_id: s for s in sources}
 
     for item in result.evidence_cards:
-        # Try to find matching source_id (LLM may reference by source_id or title)
-        source_id = None
-        for sid in source_map:
-            if sid in item.reasoning or sid in item.fact:
-                source_id = sid
-                break
+        source_id = item.source_id if item.source_id in source_map else None
+        confidence = item.confidence
+        fact = item.fact.strip()
+        if fact and fact[-1] not in "。.!！?？":
+            fact = f"{fact}。"
 
         # Fallback: assign to first source with matching product
         if source_id is None:
             for s in sources:
                 if s.product == item.product or (item.product == "market" and s.product is None):
                     source_id = s.source_id
+                    confidence = min(confidence, 0.55)
                     break
 
         # Final fallback: first source
         if source_id is None:
             source_id = sources[0].source_id if sources else "unknown"
+            confidence = min(confidence, 0.4)
 
         evidence.append(
             EvidenceCard(
@@ -132,8 +138,8 @@ def _extract_evidence_with_llm(
                 source_id=source_id,
                 product=item.product,
                 dimension=item.dimension,  # type: ignore[arg-type]
-                fact=item.fact,
-                confidence=item.confidence,
+                fact=fact,
+                confidence=confidence,
             )
         )
 

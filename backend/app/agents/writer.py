@@ -2,7 +2,7 @@ import json
 import uuid
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.llm_adapter import llm_adapter
 from app.core.logging import (
@@ -28,6 +28,15 @@ class ComparisonMatrixItem(BaseModel):
     dimensions: dict[str, str] = Field(
         ..., description="各维度对比值，如 {'功能生态': '...', '定价': '...'}"
     )
+
+    @field_validator("dimensions", mode="before")
+    @classmethod
+    def _coerce_dimensions(cls, value: Any) -> dict[str, str]:
+        if isinstance(value, dict):
+            return {str(k): str(v) for k, v in value.items()}
+        if value is None:
+            return {"summary": "信息不足"}
+        return {"summary": str(value)}
 
 
 class SWOT(BaseModel):

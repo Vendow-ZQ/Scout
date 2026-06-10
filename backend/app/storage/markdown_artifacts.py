@@ -367,7 +367,14 @@ def save_report_markdown(task_id: str, run_id: str, report: dict[str, Any]) -> s
     if key_claims:
         for item in key_claims:
             if isinstance(item, dict):
-                lines.append(f"- {item.get('text') or item}")
+                confidence = item.get("confidence") or item.get("confidence_label") or item.get("置信度")
+                evidence_refs = item.get("evidence_refs") or item.get("evidence_ids")
+                prefix = f"【置信度：{confidence}】" if confidence else ""
+                lines.append(f"- {prefix}{item.get('text') or item}")
+                if item.get("reasoning"):
+                    lines.append(f"  - reasoning: {item.get('reasoning')}")
+                if evidence_refs:
+                    lines.append(f"  - evidence: {_cell(evidence_refs)}")
             else:
                 lines.append(f"- {item}")
     else:
@@ -448,7 +455,12 @@ def save_review_scorecard_markdown(task_id: str, run_id: str, review: dict[str, 
 
 
 def save_revision_plan_markdown(task_id: str, run_id: str, review: dict[str, Any]) -> str:
-    issues = [item for item in review.get("issues") or [] if item.get("status") == "open"]
+    open_issues = [item for item in review.get("issues") or [] if item.get("status") == "open"]
+    issues = [
+        item
+        for item in open_issues
+        if not review.get("review_passed") or item.get("severity") in {"blocker", "major"}
+    ]
     lines = [
         "# Revision Plan",
         "",

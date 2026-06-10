@@ -130,6 +130,26 @@
     "public_or_authorized": true
   },
   {
+    "source_id": "src_windsurf_pricing_005",
+    "title": "Windsurf pricing page",
+    "source_type": "official",
+    "url": "https://windsurf.com/pricing",
+    "product": "Windsurf",
+    "captured_at": "2026-05-30T00:00:00Z",
+    "raw_excerpt": "Windsurf's public pricing page lists plan tiers for individual and team usage and frames pricing around access to Cascade, model usage and team/enterprise controls. Use this as the official pricing anchor for comparison; exact plan numbers and credit rules are time-sensitive and should be treated as current-public-page information, not evergreen facts.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_windsurf_pricing_review_006",
+    "title": "Third-party Windsurf pricing breakdown",
+    "source_type": "review",
+    "url": "https://www.datacamp.com/tutorial/windsurf-ai",
+    "product": "Windsurf",
+    "captured_at": "2026-05-30T00:00:00Z",
+    "raw_excerpt": "A third-party Windsurf tutorial and review describes Windsurf plan options and usage limits, positioning it against Cursor-style AI IDEs. Treat as secondary pricing and developer-experience context only; official Windsurf pricing should remain the primary source for exact plan details.",
+    "public_or_authorized": true
+  },
+  {
     "source_id": "src_windsurf_acquisition_004",
     "title": "TechCrunch: Cognition acquires Windsurf",
     "source_type": "news",
@@ -180,6 +200,36 @@
     "public_or_authorized": true
   },
   {
+    "source_id": "src_github_agent_risk_005",
+    "title": "GitHub Copilot cloud agent risks and mitigations",
+    "source_type": "docs",
+    "url": "https://docs.github.com/en/copilot/concepts/agents/cloud-agent/risks-and-mitigations",
+    "product": "GitHub Copilot",
+    "captured_at": "2026-05-31T00:00:00Z",
+    "raw_excerpt": "GitHub's cloud agent risk documentation describes prompt-injection and hidden-instruction risks when issues or comments are assigned to Copilot cloud agent, and explains mitigations such as filtering hidden characters before passing user input to the agent. Use as official risk/governance evidence for workflow-native coding agents.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_github_feedback_pr_ads_006",
+    "title": "TechRadar: GitHub kills Copilot pull-request ads after user backlash",
+    "source_type": "news",
+    "url": "https://www.techradar.com/pro/this-is-horrific-github-kills-copilot-pull-request-ads-after-user-backlash",
+    "product": "GitHub Copilot",
+    "captured_at": "2026-05-31T00:00:00Z",
+    "raw_excerpt": "TechRadar reported developer backlash after GitHub Copilot inserted product tips into pull requests, with GitHub later disabling the behavior and attributing it to a programming logic issue. Treat as a user-feedback and trust signal: workflow-native agents can damage developer trust when they alter collaboration surfaces in surprising ways.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_github_security_discussions_007",
+    "title": "arXiv: Security concerns in generative AI coding assistants from GitHub Copilot discussions",
+    "source_type": "survey",
+    "url": "https://arxiv.org/abs/2604.08352",
+    "product": "GitHub Copilot",
+    "captured_at": "2026-05-31T00:00:00Z",
+    "raw_excerpt": "A 2026 arXiv study analyzes Stack Overflow, Reddit and Hacker News discussions about GitHub Copilot security issues. It is useful for user/risk analysis because it captures recurring practitioner concerns around generated-code security, trust and responsible usage, not just official product claims.",
+    "public_or_authorized": true
+  },
+  {
     "source_id": "src_claude_overview_001",
     "title": "Claude Code overview",
     "source_type": "docs",
@@ -220,6 +270,36 @@
     "public_or_authorized": true
   },
   {
+    "source_id": "src_claude_rate_limit_feedback_005",
+    "title": "MacRumors: Claude Code users report rapid rate limit drain",
+    "source_type": "news",
+    "url": "https://www.macrumors.com/2026/03/26/claude-code-users-rapid-rate-limit-drain-bug/",
+    "product": "Claude Code",
+    "captured_at": "2026-05-31T00:00:00Z",
+    "raw_excerpt": "MacRumors reported that Claude Code users complained their usage limits were being consumed much faster than expected, with some Max subscribers saying session windows depleted within one to two hours on workloads that previously lasted longer. Treat as user-feedback and pricing/friction evidence, not as a representative performance metric.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_claude_quality_feedback_006",
+    "title": "Axios: Anthropic's AI downgrade stings power users",
+    "source_type": "news",
+    "url": "https://www.axios.com/2026/04/16/anthropic-claude-power-user-complaints",
+    "product": "Claude Code",
+    "captured_at": "2026-05-31T00:00:00Z",
+    "raw_excerpt": "Axios reported that power users on X, GitHub and Reddit debated perceived Claude Code quality changes, while Anthropic said it had adjusted default reasoning behavior and denied cost-cutting explanations. Use as market-feedback evidence: for coding agents, perceived consistency and latency can become trust risks even when the vendor offers technical explanations.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_claude_ai_tools_review_007",
+    "title": "TechRadar AI tools roundup mentioning Claude Code",
+    "source_type": "review",
+    "url": "https://www.techradar.com/best/best-ai-tools",
+    "product": "Claude Code",
+    "captured_at": "2026-05-31T00:00:00Z",
+    "raw_excerpt": "TechRadar's AI tools roundup describes Claude Code as a coding agent that can read a codebase, make multi-file changes, run tests and execute development tasks, while noting that full agent access can require higher-priced premium seats. Use as third-party review context for capability and pricing perception.",
+    "public_or_authorized": true
+  },
+  {
     "source_id": "src_codex_app_001",
     "title": "OpenAI: Introducing the Codex app",
     "source_type": "official",
@@ -257,6 +337,56 @@
     "product": "OpenAI Codex",
     "captured_at": "2026-05-28T00:00:00Z",
     "raw_excerpt": "The Codex system card describes Codex as a cloud-based coding agent powered by an o-series software-engineering-optimized model. It is useful for risk and safety analysis because coding agents can run commands, edit code, create vulnerabilities, or be affected by prompt-injection and sandbox constraints.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_codex_news_mobile_005",
+    "title": "TechCrunch: OpenAI says Codex is coming to your phone",
+    "source_type": "news",
+    "url": "https://techcrunch.com/2026/05/14/openai-says-codex-is-coming-to-your-phone/",
+    "product": "OpenAI Codex",
+    "captured_at": "2026-05-30T00:00:00Z",
+    "raw_excerpt": "TechCrunch reported that OpenAI planned to bring Codex to mobile, framing Codex as a tool for creating tasks, following progress, editing and reviewing work across devices. Use this as third-party product-direction evidence: Codex is competing beyond IDE completion and moving toward an always-available agent command center.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_codex_review_openaitoolshub_006",
+    "title": "OpenAIToolsHub: OpenAI Codex review",
+    "source_type": "review",
+    "url": "https://www.openaitoolshub.org/en/blog/openai-codex-review",
+    "product": "OpenAI Codex",
+    "captured_at": "2026-05-30T00:00:00Z",
+    "raw_excerpt": "OpenAIToolsHub's review positions Codex as suitable for scoped software tasks and reports that in its tests Codex completed most straightforward tasks, while struggling more with ambiguous requirements and tasks that needed broader product judgment. Treat as third-party evaluation, useful for review/user-feedback dimension rather than exact benchmark truth.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_codex_user_feedback_reddit_007",
+    "title": "Reddit developer discussion: testing OpenAI Codex agent workflows",
+    "source_type": "review",
+    "url": "https://www.reddit.com/r/OpenAI/comments/1l92ann/testing_openai_codex_my_experience_with_ai_agents/",
+    "product": "OpenAI Codex",
+    "captured_at": "2026-05-30T00:00:00Z",
+    "raw_excerpt": "A developer community discussion describes hands-on testing of Codex-style AI agent workflows, including task delegation, reviewing generated changes and observing where the agent needed clearer instructions. Treat as anecdotal user feedback with lower confidence, useful for developer-experience signals and limitation framing.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_codex_user_feedback_reliability_008",
+    "title": "Reddit developer discussion: Codex quality and reliability complaints",
+    "source_type": "review",
+    "url": "https://www.reddit.com/r/ChatGPTPro/comments/1kujlhs/codex_went_from_brilliant_to_completely_unusable/",
+    "product": "OpenAI Codex",
+    "captured_at": "2026-05-30T00:00:00Z",
+    "raw_excerpt": "A developer community complaint thread reports perceived reliability regression and frustration with Codex output quality. Treat strictly as anecdotal negative sentiment, not a representative metric. It is useful for risk analysis around user trust, regression perception and the need for reviewable workflows.",
+    "public_or_authorized": true
+  },
+  {
+    "source_id": "src_codex_pr_acceptance_009",
+    "title": "arXiv: Open-source pull request acceptance rates for AI coding agents",
+    "source_type": "survey",
+    "url": "https://arxiv.org/html/2604.04906v1",
+    "product": "OpenAI Codex",
+    "captured_at": "2026-05-30T00:00:00Z",
+    "raw_excerpt": "A 2026 arXiv study comparing AI-generated open-source pull requests reports that Codex-generated PRs had acceptance rates lower than some other agents in the observed dataset. Use as directional performance/quality evidence for real-world PR outcomes, with caution about sample, repository mix and changing product versions.",
     "public_or_authorized": true
   },
   {

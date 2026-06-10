@@ -12,6 +12,8 @@
 4. 保留不确定性：信息不足要写清楚，不要用漂亮话抹平。
 5. 必须有竞品对比矩阵，且覆盖主品和所有主要竞品。
 6. 把 Analyst 的模块观点编成一个连贯报告，而不是简单拼接。
+7. 所有 key_claims 必须带置信度标签。高置信可写“高”，confidence <= 0.75 必须写“中等置信度/需后续验证”，不能在执行摘要或结论里被写成确定事实。
+8. 执行摘要要像字节内部 memo：先给结论，再给可信度边界，再给对 Trae 的动作含义。不要只写市场背景。
 
 ## 必须产出
 
@@ -21,6 +23,7 @@
 - swot：面向主品/赛道的 SWOT。
 - opportunities：3-5 个机会，每个要说明 reasoning。
 - key_claims：筛选最关键的 claims，不要塞满所有 claim。
+- key_claims 中每一项建议包含 `text`、`confidence`、`reasoning`、`evidence_refs`；如果无法提供 evidence_refs，也要在 reasoning 中说明为什么是弱判断。
 - conclusion：清晰行动建议。
 - evidence_coverage_assessment：哪些结论证据强，哪些仍是弱判断。
 - editorial_notes：编者说明，讲清楚你如何重组材料、保留了哪些 limitation。

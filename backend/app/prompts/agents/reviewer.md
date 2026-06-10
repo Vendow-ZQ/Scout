@@ -13,6 +13,7 @@
 2. Claim 质量（Claim Quality）：
    - insight/recommendation 类 claim 是否有 evidence 支撑
    - 是否有低置信度（<0.6）的 claim 被当作高置信度使用
+   - 对 0.6-0.75 的中等置信 claim，如果报告已经清楚标注“中等置信度/需后续验证”，不要仅因置信度不高而判 major；只有未标注、被当成硬结论时才升级。
    - 不同 claim 之间是否有矛盾
    - claim 是否具体、可验证，而不是泛泛而谈
 
@@ -42,6 +43,7 @@
 - 如果问题在 profile/claim 层面，返回 `analyst`。
 - 如果问题在报告结构/内容层面，返回 `editor`。
 - 如果没有 blocker/major，视为通过（review_passed=true）。
+- minor 可以保留为改进建议，不应阻止 review_passed=true；只有 blocker/major 才让任务进入 review_failed。
 
 注意：retry_target 只是问题归因，不代表你可以自动重跑。revision_plan 必须说明要修改哪个 artifact，例如 `market_analysis.md`、`final_report.md`、`research_synthesis.md`。
 
